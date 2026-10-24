@@ -26,6 +26,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import SubagentModelSelectionConfig from '../src/model-selection-settings.ts'
+import type { AllowedModelRoute } from '../src/model-selection.ts'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import { modelSelectionSetupAgent, ownContext, setup, testToolSignal, text } from './harness.ts'
 
@@ -70,7 +71,7 @@ class CatalogAdapter extends LlmAdapter {
 
 const callingAgents = new WeakMap<Context, Agent>()
 
-async function setupListTool(routes = [
+async function setupListTool(routes: readonly AllowedModelRoute[] = [
   { provider: 'alpha', model: 'fast' },
   { provider: 'alpha', model: 'plain' },
   { provider: 'beta', model: 'fast' },
@@ -79,7 +80,7 @@ async function setupListTool(routes = [
   const ctx = ownContext(new Context())
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(SubagentModelSelectionConfig, { enabled: true, allowedModels: routes })
+  await ctx.plugin(SubagentModelSelectionConfig, { enabled: true, allowedModels: [...routes] })
   await mountWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(tool, { provider: 'unused', modelDiscovery: true })
@@ -405,6 +406,14 @@ describe('list_subagent_models', () => {
       'alpha/fast — Fast: Focused work.\nReasoning efforts:\n'
       + 'low — Low\nhigh (default) — High: Quality first.',
     )
+  })
+
+  it('marks a route\'s configured default effort', async () => {
+    const ctx = await setupListTool([{ provider: 'alpha', model: 'fast', reasoningEffort: 'high' }])
+    ctx.llm.registerAdapter(['alpha'], new CatalogAdapter())
+    const result = await call(ctx, { provider: 'alpha', model: 'fast' })
+    expect(result.isError).toBe(false)
+    expect(text(result)).toContain('high (default, subagent default) — High: Quality first.')
   })
 
   it('renders exact models without reasoning metadata', async () => {

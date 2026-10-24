@@ -30,7 +30,7 @@ declare module '@deepseek-ai/cordis' {
 export interface SubagentModelSelectionSettings {
   /** Whether Sessions receive model selection. */
   enabled: boolean
-  /** Exact child LLM routes offered to Sessions. */
+  /** Exact child LLM routes offered to Sessions, with optional default efforts. */
   allowedModels: AllowedModelRoute[]
 }
 
@@ -38,7 +38,7 @@ export interface SubagentModelSelectionSettings {
 export interface Config {
   /** Initial enabled state inherited when the user document does not override it. */
   enabled: Volatile<boolean>
-  /** Initial route list inherited when the user document does not override it. */
+  /** Initial route list with optional default efforts inherited when the user document does not override it. */
   allowedModels: Volatile<AllowedModelRoute[]>
 }
 

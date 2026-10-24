@@ -11,7 +11,7 @@ import css from './SubagentModelSelectionFields.module.css'
 
 /** Plain model state and callbacks supplied by the owning Subagent card. */
 export type SubagentModelSelectionFieldsProps = PropsLocale<'settings.subagent'>
-  & Pick<SubagentModelSelectionCardFace, 'toggleEnabled' | 'toggleModel' | 'retryCatalog'>
+  & Pick<SubagentModelSelectionCardFace, 'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'retryCatalog'>
   & { state: SubagentModelSelectionCardState }
 
 /**
@@ -53,9 +53,31 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
         <span className={css.modelName}>{candidate.modelName}</span>
         <span className={css.route}>{`${candidate.providerName} · ${candidate.provider}/${candidate.model}`}</span>
       </span>
-      {!candidate.available
-        ? <span className={css.unavailable}>{t('subagentModelSelectionUnavailable')}</span>
-        : null}
+      {candidate.available && candidate.selected && candidate.efforts.length > 0
+        ? (
+          <select
+            className={css.effort}
+            aria-label={`${candidate.modelName} ${t('subagentModelSelectionEffort')}`}
+            value={candidate.reasoningEffort ?? ''}
+            disabled={!state.writable || state.saving}
+            onClick={(event) => { event.stopPropagation() }}
+            onChange={(event) => {
+              props.setModelReasoningEffort(candidate.key, event.target.value === '' ? undefined : event.target.value)
+            }}
+          >
+            <option value="">{t('subagentModelSelectionEffortDefault')}</option>
+            {candidate.reasoningEffort !== undefined
+              && !candidate.efforts.some(effort => effort.id === candidate.reasoningEffort)
+              ? <option value={candidate.reasoningEffort}>{candidate.reasoningEffort}</option>
+              : null}
+            {candidate.efforts.map(effort => (
+              <option key={effort.id} value={effort.id}>{effort.name}</option>
+            ))}
+          </select>
+        )
+        : !candidate.available
+          ? <span className={css.unavailable}>{t('subagentModelSelectionUnavailable')}</span>
+          : null}
     </label>
   )
   return (

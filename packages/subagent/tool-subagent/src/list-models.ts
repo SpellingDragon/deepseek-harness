@@ -90,10 +90,15 @@ async function listSubagentModels(
     throw new Error(`child LLM route "${provider.id}/${request.model}" is not allowed for this Session`)
   }
   const model = await llm.resolveModelInfo(provider.id, request.model, signal)
-  const efforts = model.reasoning?.efforts.map(effort => (
-    `${effort.id}${model.reasoning?.defaultEffort === effort.id ? ' (default)' : ''} — ${effort.name}`
-    + (effort.description === undefined ? '' : `: ${effort.description}`)
-  )).join('\n') || '(no advertised reasoning efforts)'
+  const configuredDefault = allowedRoutes.find(route => route.model === request.model)?.reasoningEffort
+  const efforts = model.reasoning?.efforts.map((effort) => {
+    const markers = [
+      ...effort.id === model.reasoning?.defaultEffort ? ['default'] : [],
+      ...effort.id === configuredDefault ? ['subagent default'] : [],
+    ]
+    return `${effort.id}${markers.length === 0 ? '' : ` (${markers.join(', ')})`} — ${effort.name}`
+      + (effort.description === undefined ? '' : `: ${effort.description}`)
+  }).join('\n') || '(no advertised reasoning efforts)'
   return `${modelLine(provider.id, model)}\nReasoning efforts:\n${efforts}`
 }
 

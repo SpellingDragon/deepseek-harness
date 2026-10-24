@@ -160,6 +160,13 @@ describe('SubagentModelSelectionConfig', () => {
     expect(() => subagentModelSelectionPolicy(policy, malformed))
       .toThrow('requires non-empty provider and model ids')
 
+    const malformedEffort = Session.create(SessionId('malformed-policy-effort'))
+    malformedEffort.append('subagent/model-selection-policy', {
+      allowedModels: [{ provider: 'alpha', model: 'fast-model', reasoningEffort: '' }],
+    })
+    expect(() => subagentModelSelectionPolicy(policy, malformedEffort))
+      .toThrow('requires a non-empty reasoning effort')
+
     const cleared = Session.create(SessionId('cleared-policy'))
     cleared.append('subagent/model-selection-policy', { allowedModels: ALLOWED_MODELS })
     cleared.append('subagent/model-selection-policy-change', {
@@ -517,6 +524,25 @@ describe('SubagentModelSelectionConfig', () => {
       ],
     })
     expect(policyEvents()).toHaveLength(1)
+    await ctx.fiber.dispose()
+  })
+
+  it('propagates per-route default reasoning effort changes', async () => {
+    const ctx = await boot()
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: ALLOWED_MODELS })
+    const agent = await createAgent(ctx, 'effort-policy')
+    const policy = await ctx.sessionProjections.register(subagentModelSelectionProjectionDefinition)
+    expect(subagentModelSelectionPolicy(policy, agent.session)).toEqual(ALLOWED_MODELS)
+
+    const withEffort = ALLOWED_MODELS.map(route => ({ ...route, reasoningEffort: 'max' }))
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: withEffort })
+    expect(subagentModelSelectionPolicy(policy, agent.session)).toEqual(withEffort)
+    expect(agent.session.snapshotEvents()
+      .filter(event => event.type === 'subagent/model-selection-policy-change')).toHaveLength(1)
+
+    const seeded = Session.create(SessionId('effort-seed'))
+    seeded.append('subagent/model-selection-policy', { allowedModels: withEffort })
+    expect(subagentModelSelectionPolicy(policy, seeded)).toEqual(withEffort)
     await ctx.fiber.dispose()
   })
 

@@ -56,6 +56,7 @@ function renderSubagent(
     resetLimit: vi.fn(),
     toggleEnabled: vi.fn(),
     toggleModel: vi.fn(),
+    setModelReasoningEffort: vi.fn(),
     retryCatalog: vi.fn(),
     save: vi.fn(),
     discard: vi.fn(),
@@ -96,6 +97,7 @@ describe('Subagent model selection fields', () => {
           model: 'fast',
           providerName: 'Alpha API',
           modelName: 'Fast',
+          efforts: [],
           available: true,
           selected: true,
         },
@@ -105,6 +107,7 @@ describe('Subagent model selection fields', () => {
           model: 'deep',
           providerName: 'Alpha API',
           modelName: 'Deep',
+          efforts: [],
           available: true,
           selected: false,
         },
@@ -118,6 +121,33 @@ describe('Subagent model selection fields', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Deep/ }))
     expect(actions.toggleModel).toHaveBeenCalledWith('alpha\0fast')
     expect(actions.toggleModel).toHaveBeenCalledWith('alpha\0deep')
+  })
+
+  it('stages a selected model\'s default reasoning effort', () => {
+    const actions = renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [{
+        key: 'alpha\0fast',
+        provider: 'alpha',
+        model: 'fast',
+        providerName: 'Alpha API',
+        modelName: 'Fast',
+        efforts: [{ id: 'high', name: 'High' }, { id: 'max', name: 'Max' }],
+        reasoningEffort: 'high',
+        available: true,
+        selected: true,
+      }],
+    })
+
+    const select = screen.getByRole('combobox', {
+      name: `Fast ${en.subagentModelSelectionEffort}`,
+    }) as HTMLSelectElement
+    expect(select.value).toBe('high')
+    fireEvent.change(select, { target: { value: 'max' } })
+    expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', 'max')
+    fireEvent.change(select, { target: { value: '' } })
+    expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', undefined)
   })
 
   it('renders directory progress, failures, unavailable routes, and validation', () => {
@@ -141,6 +171,7 @@ describe('Subagent model selection fields', () => {
         model: 'old',
         providerName: 'legacy',
         modelName: 'old',
+        efforts: [],
         available: false,
         selected: true,
       }],

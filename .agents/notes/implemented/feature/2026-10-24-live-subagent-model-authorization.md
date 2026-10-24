@@ -14,6 +14,8 @@ The Host records a Session's authorized subagent routes before its first model r
 
 The Host settings service writes the change event to every live Agent when the Volatile preference updates. On Agent creation it compares the recorded authorization with the current preference: a fresh startup Session receives the initial event when authorization differs, while a restored Session receives a change event. New Sessions, including child Sessions, take the current host preference rather than inheriting a parent snapshot. A change event is appended only when the route set differs; list order alone is not a change.
 
+Each authorized route also carries an optional default `reasoningEffort`. When a delegation call omits `reasoning_effort` and its effective route matches an authorized route, the executor uses that route's default; an explicit model value still wins. This is a default, not an allowlist: every effort the adapter advertises for the route remains selectable.
+
 Discovery and delegation continue to read the Session projection. They do not read the settings document on each call, so every authority change remains in the Session log and a restored Session replays the same sequence of decisions. Settings, discovery, and execution still share one package-local authorization definition.
 
 ## Alternatives considered
@@ -21,6 +23,8 @@ Discovery and delegation continue to read the Session projection. They do not re
 **Read current settings on every discovery or delegation call.** Rejected because the authority a Session used would depend on ambient process state rather than its durable log. The earlier rejection of this design remains: live updates are recorded decisions, not per-call settings reads.
 
 **Append an empty `allowedModels` array to the existing event and treat it as disabled.** Rejected because it reuses a discriminator with a new meaning and makes existing readers reject or misinterpret a valid log. A distinct event lets existing logs and existing readers keep their established behavior.
+
+**Store a per-route reasoning-effort allowlist.** Rejected because the user decision concerns child models, while effort ids and compatibility belong to the exact adapter route. The optional route effort records a default only; it does not narrow the efforts the model may explicitly select.
 
 **Update only the Session that saved the settings change.** Rejected because the preference is host-scoped; other live Sessions and their children would keep stale authority. All live Agents are reconciled together.
 
@@ -31,10 +35,11 @@ Discovery and delegation continue to read the Session projection. They do not re
 ## Consequences
 
 - A settings edit changes the authority of every live Agent, including child Agents, and a restored Session is reconciled before its first new request. The change is visible to the next discovery or delegation call and is recorded in that Session's log.
-- The initial event remains unchanged for compatibility. Change events append only when the exact route set differs; reordering the same routes appends nothing.
+- The initial event remains unchanged for compatibility. Change events append only when the exact route set or a route's default effort differs; reordering the same routes appends nothing.
+- A route's default effort is applied only when the caller omits an effort. The settings card offers the adapter's advertised efforts per selected model; an explicit call value remains unrestricted by the policy.
 - An older harness version meeting the new required event refuses to reconstruct that Session instead of silently applying stale authority. No downgrade support is provided. New readers preserve old logs because an absent change event leaves the initial event authoritative.
 - Discovery and execution keep reading the shared projection, so the authorization path has one source and one enforcement point.
-- Tests cover live top-level and child updates, restored Sessions, unchanged route sets, discovery results, and executor denial after a preference change.
+- Tests cover live top-level and child updates, restored Sessions, unchanged route sets, per-route default-effort changes, discovery results, and executor denial after a preference change.
 
 ## Related decisions
 

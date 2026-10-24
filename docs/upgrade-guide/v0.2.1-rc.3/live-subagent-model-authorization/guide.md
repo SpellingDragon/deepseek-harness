@@ -9,9 +9,9 @@ English | [中文](guide.zh.md)
 
 ## Change
 
-Saving the Subagent model-selection setting now updates every running Session, including child Sessions, and Sessions restored afterwards. Previously only Sessions created after the save used the new authorization. A Session log can now contain `subagent/model-selection-policy-change` events.
+Saving the Subagent model-selection setting now updates every running Session, including child Sessions, and Sessions restored afterwards. Previously only Sessions created after the save used the new authorization. Each authorized model can also carry an optional default reasoning effort. A Session log can now contain `subagent/model-selection-policy-change` events and authorized routes with `reasoningEffort`.
 
-Older harness versions do not recognize that required event and refuse to open a Session containing it. Downgrade support is not provided.
+Older harness versions do not recognize that required event or the route effort field and refuse to open an affected Session. Downgrade support is not provided.
 
 ## Migration
 

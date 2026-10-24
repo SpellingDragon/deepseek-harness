@@ -26,7 +26,7 @@ Model selection has no unrestricted static mode. The default-off Host setting au
 
 **Infer enablement from a non-empty `allowedModels` array.** Rejected because disabling would have to discard a useful selection or preserve a non-empty array whose meaning depends on write history. The explicit switch is authoritative, and the settings scope submits both fields in one Host-validated mutation so no intermediate state is persisted.
 
-**Store per-route reasoning-effort allowlists.** Rejected because the user decision concerns child models, while effort ids and compatibility belong to the exact adapter route. Every adapter-supported effort remains available after the route is authorized.
+**Store per-route reasoning-effort allowlists.** Rejected because the user decision concerns child models, while effort ids and compatibility belong to the exact adapter route. Every adapter-supported effort remains available after the route is authorized. A route's optional default effort is a default for omitted values, not a narrowed allowlist ([live authorization updates](2026-10-24-live-subagent-model-authorization.md)).
 
 **Read current settings on every discovery or delegation call.** Rejected because a settings edit would silently change a running Session's model-visible capabilities and execution authority. The durable Session snapshot keeps resume and child inheritance deterministic.
 

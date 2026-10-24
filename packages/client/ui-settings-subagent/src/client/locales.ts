@@ -16,6 +16,7 @@ export type SubagentSettingsLocaleKey =
   | 'subagentCapacityInvalid'
   | 'subagentModelSelectionTitle'
   | 'subagentModelSelectionToggle' | 'subagentModelSelectionChoose' | 'subagentModelSelectionAllowed'
+  | 'subagentModelSelectionEffort' | 'subagentModelSelectionEffortDefault'
   | 'subagentModelSelectionLoading' | 'subagentModelSelectionLoadFailed' | 'subagentModelSelectionRetry'
   | 'subagentModelSelectionPartial' | 'subagentModelSelectionUnavailable'
   | 'subagentModelSelectionUnavailableGroup' | 'subagentModelSelectionEmpty'
@@ -48,6 +49,8 @@ export const en: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionToggle: 'Allow agents to choose models for Subagents',
   subagentModelSelectionChoose: 'When enabled, agents can choose a provider, model, and reasoning effort for each Subagent from the authorized models below. Changes apply immediately to running, restored, and new sessions.',
   subagentModelSelectionAllowed: 'Models agents may choose',
+  subagentModelSelectionEffort: 'Reasoning effort',
+  subagentModelSelectionEffortDefault: 'Model default',
   subagentModelSelectionLoading: 'Loading models…',
   subagentModelSelectionLoadFailed: 'Models could not be loaded.',
   subagentModelSelectionRetry: 'Retry',
@@ -87,6 +90,8 @@ export const zh: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionToggle: '允许 Agent 为子智能体选择模型',
   subagentModelSelectionChoose: '开启后，Agent 可以从下方授权模型中，为每个子智能体选择提供方、模型和推理强度。更改会立即应用于运行中、已恢复和新创建的会话。',
   subagentModelSelectionAllowed: 'Agent 可选择的模型',
+  subagentModelSelectionEffort: '推理强度',
+  subagentModelSelectionEffortDefault: '模型默认',
   subagentModelSelectionLoading: '正在加载模型…',
   subagentModelSelectionLoadFailed: '无法加载模型。',
   subagentModelSelectionRetry: '重试',
@@ -135,6 +140,8 @@ export const ja = {
   'subagentModelSelectionToggle': 'エージェントによるサブエージェントのモデル選択を許可',
   'subagentModelSelectionChoose': '有効にすると、エージェントは以下の許可されたモデルからサブエージェントごとにプロバイダー、モデル、推論強度を選択できます。変更は実行中、復元された、新しいセッションにすぐに適用されます。',
   'subagentModelSelectionAllowed': 'エージェントが選択可能なモデル',
+  'subagentModelSelectionEffort': '推論強度',
+  'subagentModelSelectionEffortDefault': 'モデルのデフォルト',
   'subagentModelSelectionLoading': 'モデルを読み込み中…',
   'subagentModelSelectionLoadFailed': 'モデルを読み込めませんでした。',
   'subagentModelSelectionRetry': '再試行',
@@ -174,6 +181,8 @@ export const es = {
   subagentModelSelectionToggle: 'Permitir a los agentes elegir modelos para Subagentes',
   subagentModelSelectionChoose: 'Cuando está habilitado, los agentes pueden elegir un proveedor, modelo y esfuerzo de razonamiento para cada subagente entre los modelos autorizados a continuación. Los cambios se aplican de inmediato a las sesiones en ejecución, restauradas y nuevas.',
   subagentModelSelectionAllowed: 'Los agentes modelos pueden elegir',
+  subagentModelSelectionEffort: 'Esfuerzo de razonamiento',
+  subagentModelSelectionEffortDefault: 'Predeterminado del modelo',
   subagentModelSelectionLoading: 'Cargando modelos…',
   subagentModelSelectionLoadFailed: 'No se pudieron cargar los modelos.',
   subagentModelSelectionRetry: 'Reintentar',
@@ -213,6 +222,8 @@ export const fr = {
   subagentModelSelectionToggle: 'Autoriser les agents à choisir des modèles pour les sous-agents',
   subagentModelSelectionChoose: "Lorsque cette option est activée, les agents peuvent choisir un fournisseur, un modèle et un effort de raisonnement pour chaque sous-agent parmi les modèles autorisés ci-dessous. Les modifications s'appliquent immédiatement aux sessions en cours, restaurées et nouvelles.",
   subagentModelSelectionAllowed: 'Les agents modèles peuvent choisir',
+  subagentModelSelectionEffort: 'Effort de raisonnement',
+  subagentModelSelectionEffortDefault: 'Valeur par défaut du modèle',
   subagentModelSelectionLoading: 'Chargement des modèles…',
   subagentModelSelectionLoadFailed: "Les modèles n'ont pas pu être chargés.",
   subagentModelSelectionRetry: 'Réessayer',
@@ -252,6 +263,8 @@ export const de = {
   subagentModelSelectionToggle: 'Erlauben Sie Agenten, Modelle für Subagenten auszuwählen',
   subagentModelSelectionChoose: 'Wenn diese Option aktiviert ist, können Agenten aus den unten aufgeführten autorisierten Modellen einen Anbieter, ein Modell und einen Argumentationsaufwand für jeden Subagenten auswählen. Änderungen gelten sofort für laufende, wiederhergestellte und neue Sitzungen.',
   subagentModelSelectionAllowed: 'Modelagenten können wählen',
+  subagentModelSelectionEffort: 'Argumentationsaufwand',
+  subagentModelSelectionEffortDefault: 'Modellstandard',
   subagentModelSelectionLoading: 'Modelle werden geladen…',
   subagentModelSelectionLoadFailed: 'Modelle konnten nicht geladen werden.',
   subagentModelSelectionRetry: 'Erneut versuchen',
@@ -291,6 +304,8 @@ export const ru = {
   subagentModelSelectionToggle: 'Разрешить агентам выбирать модели для субагентов',
   subagentModelSelectionChoose: 'Если этот параметр включен, агенты могут выбирать поставщика, модель и усилия по обоснованию для каждого субагента из авторизованных моделей, указанных ниже. Изменения сразу применяются к текущим, восстановленным и новым сеансам.',
   subagentModelSelectionAllowed: 'Модели агенты могут выбирать',
+  subagentModelSelectionEffort: 'Усилия рассуждения',
+  subagentModelSelectionEffortDefault: 'По умолчанию для модели',
   subagentModelSelectionLoading: 'Загрузка моделей…',
   subagentModelSelectionLoadFailed: 'Не удалось загрузить модели.',
   subagentModelSelectionRetry: 'Повторить',
@@ -330,6 +345,8 @@ export const pt = {
   subagentModelSelectionToggle: 'Permitir que os agentes escolham modelos para subagentes',
   subagentModelSelectionChoose: 'Quando ativado, os agentes podem escolher um provedor, um modelo e um esforço de raciocínio para cada subagente dentre os modelos autorizados abaixo. As alterações se aplicam imediatamente a sessões em execução, restauradas e novas.',
   subagentModelSelectionAllowed: 'Os agentes de modelos podem escolher',
+  subagentModelSelectionEffort: 'Esforço de raciocínio',
+  subagentModelSelectionEffortDefault: 'Padrão do modelo',
   subagentModelSelectionLoading: 'Carregando modelos…',
   subagentModelSelectionLoadFailed: 'Não foi possível carregar os modelos.',
   subagentModelSelectionRetry: 'Tentar novamente',

@@ -10,6 +10,7 @@ import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import * as mock from './scripted-provider.ts'
 import type { Config as toolConfig } from '../src/index.ts'
+import type { AllowedModelRoute } from '../src/model-selection.ts'
 import * as tool from '../src/index.ts'
 import SubagentModelSelectionConfig from '../src/model-selection-settings.ts'
 
@@ -38,6 +39,8 @@ type SetupConfig = toolConfig & {
   withModelSelection?: boolean
   /** Host setting sampled by a `withModelSelection` setup; defaults to enabled. */
   hostSelectionEnabled?: boolean
+  /** Authorized routes sampled by a `withModelSelection` setup. */
+  hostAllowedModels?: readonly AllowedModelRoute[]
   parentAgentOptions?: AgentOptions
 }
 
@@ -52,12 +55,12 @@ const TEST_ALLOWED_MODELS = [
 
 export async function setup(toolConfig: SetupConfig, mockConfig: Partial<mock.Config> = {}): Promise<Context> {
   const ctx = ownContext(new Context())
-  const { withModelSelection, hostSelectionEnabled = true, parentAgentOptions, ...config } = toolConfig
+  const { withModelSelection, hostSelectionEnabled = true, hostAllowedModels, parentAgentOptions, ...config } = toolConfig
   await mountAgentLoopTestDependencies(ctx)
   if (withModelSelection === true) {
     await ctx.plugin(SubagentModelSelectionConfig, {
       enabled: hostSelectionEnabled,
-      allowedModels: TEST_ALLOWED_MODELS,
+      allowedModels: hostAllowedModels === undefined ? TEST_ALLOWED_MODELS : [...hostAllowedModels],
     })
     await ctx.plugin(AgentLoop, { agents: [] })
     await mountWorkingDirectoryFixture(ctx)

@@ -48,7 +48,14 @@ function modelsApi(options: {
   groups?: readonly {
     id: string
     name: string
-    models: readonly { id: string; name: string }[]
+    models: readonly {
+      id: string
+      name: string
+      reasoning?: {
+        efforts: readonly { id: string; name: string; description?: string }[]
+        defaultEffort?: string
+      }
+    }[]
   }[]
   failures?: readonly { id: string; name: string; message: string }[]
   error?: string
@@ -82,11 +89,11 @@ describe('SubagentModelSelectionCardController', () => {
     expect(candidates).toEqual([
       {
         key: 'alpha\0fast', provider: 'alpha', model: 'fast', providerName: 'Alpha API',
-        modelName: 'Fast', available: true, selected: false,
+        modelName: 'Fast', efforts: [], available: true, selected: false,
       },
       {
         key: 'legacy\0old', provider: 'legacy', model: 'old', providerName: 'legacy',
-        modelName: 'old', available: false, selected: true,
+        modelName: 'old', efforts: [], available: false, selected: true,
       },
     ])
   })
@@ -123,6 +130,47 @@ describe('SubagentModelSelectionCardController', () => {
       dirty: false,
       saving: false,
       failed: false,
+    })
+  })
+
+  it('stages and saves a per-model default reasoning effort', async () => {
+    const host = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(host)
+    const models = modelsApi({
+      groups: [{
+        id: 'alpha',
+        name: 'Alpha API',
+        models: [{
+          id: 'fast',
+          name: 'Fast',
+          reasoning: {
+            efforts: [{ id: 'high', name: 'High' }, { id: 'max', name: 'Max' }],
+            defaultEffort: 'high',
+          },
+        }],
+      }],
+    })
+    const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
+    host.publish({
+      status: 'ready', writable: true, revision: 7,
+      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+    })
+    const face = controller.inject()
+    const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(1) })
+    expect(state().candidates[0]?.efforts.map(effort => effort.id)).toEqual(['high', 'max'])
+
+    face.setModelReasoningEffort('alpha\0fast', 'max')
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'max' }],
+        },
+      ], 7)
     })
   })
 

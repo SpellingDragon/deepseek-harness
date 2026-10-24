@@ -63,8 +63,8 @@ The [format references](persistence-changes/historical-formats/README.md) cover 
 | `event:step/start` | event | `4513e088d43e6c68425be30451b9f961cc264fe7318ca62681c41d4d78615986` | [`{ type: "step/start" }`](#persistence-type-sha256-4513e088d43e6c68425be30451b9f961cc264fe7318ca62681c41d4d78615986) |
 | `event:subagent/catalog` | event | `53750b9abf61efb7992b0aadc3e247ec927449c63266df28230fd1139f5590ac` | [`{ type: "subagent/catalog" }`](#persistence-type-sha256-53750b9abf61efb7992b0aadc3e247ec927449c63266df28230fd1139f5590ac) |
 | `event:subagent/descriptor` | event | `b79ada42962cad0190a9d465805260567621fa3a4abd757eb31e6016b52d5ab5` | [`{ type: "subagent/descriptor" }`](#persistence-type-sha256-b79ada42962cad0190a9d465805260567621fa3a4abd757eb31e6016b52d5ab5) |
-| `event:subagent/model-selection-policy` | event | `a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc` | [`{ type: "subagent/model-selection-policy" }`](#persistence-type-sha256-a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc) |
-| `event:subagent/model-selection-policy-change` | event | `b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58` | [`{ type: "subagent/model-selection-policy-change" }`](#persistence-type-sha256-b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58) |
+| `event:subagent/model-selection-policy` | event | `98e89a830ffa3b081bf182a26850c270550dc467d734b37f6739295a166aae3b` | [`{ type: "subagent/model-selection-policy" }`](#persistence-type-sha256-98e89a830ffa3b081bf182a26850c270550dc467d734b37f6739295a166aae3b) |
+| `event:subagent/model-selection-policy-change` | event | `59e286f8fc30e06cc037ccd3644f88f08035edc879cdb1c6115471b4352e6a5e` | [`{ type: "subagent/model-selection-policy-change" }`](#persistence-type-sha256-59e286f8fc30e06cc037ccd3644f88f08035edc879cdb1c6115471b4352e6a5e) |
 | `event:system/message` | event | `69081694be231d56fd9580ba14645fd5e35373202605d5c5c841a9435b5fa3b1` | [`{ type: "system/message" }`](#persistence-type-sha256-69081694be231d56fd9580ba14645fd5e35373202605d5c5c841a9435b5fa3b1) |
 | `event:team/member` | event | `4fb59762612c3e3ac3a3bd4f84c9c148d3c3893bd422ba2b201cc039fabd49bc` | [`{ type: "team/member" }`](#persistence-type-sha256-4fb59762612c3e3ac3a3bd4f84c9c148d3c3893bd422ba2b201cc039fabd49bc) |
 | `event:team/message/delivered` | event | `48f9c19417a1abbedfa59f4667bba36b93ac2db407adf5e84cb3ba0de30942cb` | [`{ type: "team/message/delivered" }`](#persistence-type-sha256-48f9c19417a1abbedfa59f4667bba36b93ac2db407adf5e84cb3ba0de30942cb) |
@@ -965,9 +965,10 @@ Source: [`packages/subagent/subagent/src/descriptor.ts:38`](../packages/subagent
 ```ts persistence-catalog
 /**
  * Records this Session’s initial authorized child provider/model routes.
- * Appended before the first model request when the Host preference is
- * enabled. A later policy-change event supersedes it. Log-only: it carries
- * no `surfaceOp` and never enters model history.
+ * Each route may carry a default reasoning effort. Appended before the
+ * first model request when the Host preference is enabled. A later
+ * policy-change event supersedes it. Log-only: it carries no `surfaceOp`
+ * and never enters model history.
  */
 'subagent/model-selection-policy': {
   /** Exact routes this Session may select explicitly for a child. */
@@ -975,7 +976,7 @@ Source: [`packages/subagent/subagent/src/descriptor.ts:38`](../packages/subagent
 }
 ```
 
-Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:21`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:22`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 <a id="subagentmodel-selection-policy-change--log-only"></a>
 
@@ -993,12 +994,12 @@ Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:21`](../p
 'subagent/model-selection-policy-change': {
   /** Whether child model selection is enabled for this Session. */
   enabled: boolean
-  /** Current saved routes; ignored unless `enabled` is true. */
+  /** Current saved routes and their default efforts; ignored unless `enabled` is true. */
   allowedModels: AllowedModelRoute[]
 }
 ```
 
-Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:34`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:35`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 ### `system/*`
 
@@ -4378,21 +4379,33 @@ Sources: [`packages/llm/llm/src/message.ts:24`](../packages/llm/llm/src/message.
 
 <a id="persistence-type-sha256-f09e5e7acf5ff5ccd193ff2eeec015fa2ff7c29d98bc465f8c3302058d47e29b"></a>
 
+<a id="persistence-type-allowedmodelroute"></a>
+
 <a id="persistence-type-modelselection"></a>
 
 <a id="persistence-type-packagescoreagentsrctypestsmodelselection"></a>
+
+<a id="persistence-type-packagessubagenttool-subagentsrcmodel-selectiontsallowedmodelroute"></a>
 
 ### `ModelSelection`
 
 SHA-256: `f09e5e7acf5ff5ccd193ff2eeec015fa2ff7c29d98bc465f8c3302058d47e29b`
 
-Sources: [`packages/core/agent/src/types.ts:79`](../packages/core/agent/src/types.ts)
+Sources: [`packages/core/agent/src/types.ts:79`](../packages/core/agent/src/types.ts) · [`packages/subagent/tool-subagent/src/model-selection.ts:9`](../packages/subagent/tool-subagent/src/model-selection.ts)
 
 | Property | Presence | Type |
 |---|---|---|
 | `model` | required | `string` |
 | `provider` | required | `string` |
 | `reasoningEffort` | optional | `string` |
+
+<a id="persistence-type-sha256-061b8f64aa2d9ec738ac75d69f4d20c9a13054d62d594e0b50db8f4d839221b5"></a>
+
+### `ModelSelection[]`
+
+SHA-256: `061b8f64aa2d9ec738ac75d69f4d20c9a13054d62d594e0b50db8f4d839221b5`
+
+Array of [`ModelSelection`](#persistence-type-sha256-f09e5e7acf5ff5ccd193ff2eeec015fa2ff7c29d98bc465f8c3302058d47e29b).
 
 <a id="persistence-type-sha256-8e8e91646a5cae3fc78f7532a0013ff2088ae47077642c2edd507a508209b8af"></a>
 
@@ -4763,11 +4776,7 @@ Sources: [`packages/session/session-title-llm/src/index.ts:37`](../packages/sess
 
 <a id="persistence-type-sha256-07e1a58c58b593f507b8e7f25723bb0aa42baae6e00f5ecfddf28cb1e64d3235"></a>
 
-<a id="persistence-type-allowedmodelroute"></a>
-
 <a id="persistence-type-packagessessionsession-titlesrctypestssessiontitlemodelidentity"></a>
-
-<a id="persistence-type-packagessubagenttool-subagentsrcmodel-selectiontsallowedmodelroute"></a>
 
 <a id="persistence-type-sessiontitlemodelidentity"></a>
 
@@ -4775,20 +4784,12 @@ Sources: [`packages/session/session-title-llm/src/index.ts:37`](../packages/sess
 
 SHA-256: `07e1a58c58b593f507b8e7f25723bb0aa42baae6e00f5ecfddf28cb1e64d3235`
 
-Sources: [`packages/session/session-title/src/types.ts:20`](../packages/session/session-title/src/types.ts) · [`packages/subagent/tool-subagent/src/model-selection.ts:9`](../packages/subagent/tool-subagent/src/model-selection.ts)
+Sources: [`packages/session/session-title/src/types.ts:20`](../packages/session/session-title/src/types.ts)
 
 | Property | Presence | Type |
 |---|---|---|
 | `model` | required | `string` |
 | `provider` | required | `string` |
-
-<a id="persistence-type-sha256-ba77b58995e36f14bb13886b0493d0a1a63d5db10b1a6cd9f6ac65a72cf832ec"></a>
-
-### `SessionTitleModelIdentity[]`
-
-SHA-256: `ba77b58995e36f14bb13886b0493d0a1a63d5db10b1a6cd9f6ac65a72cf832ec`
-
-Array of [`SessionTitleModelIdentity`](#persistence-type-sha256-07e1a58c58b593f507b8e7f25723bb0aa42baae6e00f5ecfddf28cb1e64d3235).
 
 <a id="persistence-type-sha256-30d5a537b296685770b1241c4b4bbde19d5a31ff81aa23df73fab5e90b8fc65f"></a>
 
@@ -5836,29 +5837,29 @@ Sources: [`packages/preset/agent-preset-registry/src/session.ts:31`](../packages
 |---|---|---|
 | `agentPreset` | required | `string` |
 
-<a id="persistence-type-sha256-0d47a8f3d847243c4488e755ad4cab7a04ac5d4621b9c81865524cf3f4d8536f"></a>
+<a id="persistence-type-sha256-65f13e670da0133cea434b366d91a151e5da07967aa3ea27e69363b8ddecfb97"></a>
 
 ### `{ allowedModels }`
 
-SHA-256: `0d47a8f3d847243c4488e755ad4cab7a04ac5d4621b9c81865524cf3f4d8536f`
+SHA-256: `65f13e670da0133cea434b366d91a151e5da07967aa3ea27e69363b8ddecfb97`
 
-Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:21`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:22`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 | Property | Presence | Type |
 |---|---|---|
-| `allowedModels` | required | [`SessionTitleModelIdentity[]`](#persistence-type-sha256-ba77b58995e36f14bb13886b0493d0a1a63d5db10b1a6cd9f6ac65a72cf832ec) |
+| `allowedModels` | required | [`ModelSelection[]`](#persistence-type-sha256-061b8f64aa2d9ec738ac75d69f4d20c9a13054d62d594e0b50db8f4d839221b5) |
 
-<a id="persistence-type-sha256-2847ace8d73ec16e801a1169abfe554a03cc36f9623f9a46b00f8f8cb8489e2d"></a>
+<a id="persistence-type-sha256-10d29f7ae1efacd6f36fbffa585b4fe64bf2b4a35935a4884bc9113846df40ba"></a>
 
 ### `{ allowedModels, enabled }`
 
-SHA-256: `2847ace8d73ec16e801a1169abfe554a03cc36f9623f9a46b00f8f8cb8489e2d`
+SHA-256: `10d29f7ae1efacd6f36fbffa585b4fe64bf2b4a35935a4884bc9113846df40ba`
 
-Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:34`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:35`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 | Property | Presence | Type |
 |---|---|---|
-| `allowedModels` | required | [`SessionTitleModelIdentity[]`](#persistence-type-sha256-ba77b58995e36f14bb13886b0493d0a1a63d5db10b1a6cd9f6ac65a72cf832ec) |
+| `allowedModels` | required | [`ModelSelection[]`](#persistence-type-sha256-061b8f64aa2d9ec738ac75d69f4d20c9a13054d62d594e0b50db8f4d839221b5) |
 | `enabled` | required | `boolean` |
 
 <a id="persistence-type-sha256-a853902cfab417b8f08aa51ad6855fea46f34ed4588a74e47403035111d0fb86"></a>
@@ -8831,33 +8832,33 @@ SHA-256: `b79ada42962cad0190a9d465805260567621fa3a4abd757eb31e6016b52d5ab5`
 | `time` | required | `number` |
 | `type` | required | `"subagent/descriptor"` |
 
-<a id="persistence-type-sha256-a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc"></a>
+<a id="persistence-type-sha256-98e89a830ffa3b081bf182a26850c270550dc467d734b37f6739295a166aae3b"></a>
 
 <a id="persistence-type-eventsubagentmodel-selection-policy"></a>
 
 ### `{ type: "subagent/model-selection-policy" }`
 
-SHA-256: `a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc`
+SHA-256: `98e89a830ffa3b081bf182a26850c270550dc467d734b37f6739295a166aae3b`
 
 | Property | Presence | Type |
 |---|---|---|
-| `data` | required | [`{ allowedModels }`](#persistence-type-sha256-0d47a8f3d847243c4488e755ad4cab7a04ac5d4621b9c81865524cf3f4d8536f) |
+| `data` | required | [`{ allowedModels }`](#persistence-type-sha256-65f13e670da0133cea434b366d91a151e5da07967aa3ea27e69363b8ddecfb97) |
 | `ignorable` | optional | `true` |
 | `seq` | required | `number` |
 | `time` | required | `number` |
 | `type` | required | `"subagent/model-selection-policy"` |
 
-<a id="persistence-type-sha256-b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58"></a>
+<a id="persistence-type-sha256-59e286f8fc30e06cc037ccd3644f88f08035edc879cdb1c6115471b4352e6a5e"></a>
 
 <a id="persistence-type-eventsubagentmodel-selection-policy-change"></a>
 
 ### `{ type: "subagent/model-selection-policy-change" }`
 
-SHA-256: `b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58`
+SHA-256: `59e286f8fc30e06cc037ccd3644f88f08035edc879cdb1c6115471b4352e6a5e`
 
 | Property | Presence | Type |
 |---|---|---|
-| `data` | required | [`{ allowedModels, enabled }`](#persistence-type-sha256-2847ace8d73ec16e801a1169abfe554a03cc36f9623f9a46b00f8f8cb8489e2d) |
+| `data` | required | [`{ allowedModels, enabled }`](#persistence-type-sha256-10d29f7ae1efacd6f36fbffa585b4fe64bf2b4a35935a4884bc9113846df40ba) |
 | `ignorable` | optional | `true` |
 | `seq` | required | `number` |
 | `time` | required | `number` |
