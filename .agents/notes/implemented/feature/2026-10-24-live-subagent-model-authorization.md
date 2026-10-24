@@ -6,7 +6,7 @@ English | [中文](2026-10-24-live-subagent-model-authorization.zh.md)
 
 ## Problem
 
-The Host records a Session's authorized subagent routes before its first model request. A settings edit therefore affected only Sessions created afterwards; a running or restored Session kept its creation-time authorization until the user started a new conversation. The durable snapshot kept resume deterministic, but it made an explicit user preference appear ineffective in the conversation the user was already having.
+The Host records a Session's authorized subagent routes before its first model request. A settings edit therefore affected only Sessions created afterwards; a running or restored Session kept its creation-time authorization until the user started a new conversation. The durable snapshot kept resume deterministic, but it made an explicit user preference appear ineffective in the conversation the user was already having. The same settings card had no per-model way to set a default reasoning effort, so an omitted effort always fell back to the adapter's default.
 
 ## Decision
 
