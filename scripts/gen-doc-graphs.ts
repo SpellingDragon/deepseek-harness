@@ -446,7 +446,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Subagent model-selection preference',
     mode: 'core',
     consumers: ['tool-subagent'],
-    note: 'Owns the default-off settings namespace that Agent-scoped delegation tools sample when composing a new top-level Session.',
+    note: 'Owns the default-off settings namespace that Agent-scoped delegation tools apply to live and restored Sessions; preference changes are recorded in each Session log.',
   },
   {
     key: 'credentials',

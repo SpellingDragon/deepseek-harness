@@ -18,6 +18,7 @@ import {
   assertAllowedModelRoutes,
   assertAllowedModelSelection,
   preflightChildLlmRoute,
+  sameAllowedModelRoutes,
 } from '../src/model-selection.ts'
 import { callSubagent, modelSelectionSetupAgent, setup, text } from './harness.ts'
 
@@ -50,6 +51,19 @@ describe('dsh-tool-subagent model selection', () => {
       .toThrow('requires an array of routes')
     expect(() => { assertAllowedModelRoutes([{ provider: 1, model: 'model' }]) })
       .toThrow('requires non-empty provider and model ids')
+  })
+
+  it('compares route sets without order or absent-policy differences', () => {
+    const first = { provider: 'alpha', model: 'fast-model' }
+    const second = { provider: 'beta', model: 'fast-model' }
+
+    expect(sameAllowedModelRoutes(undefined, undefined)).toBe(true)
+    expect(sameAllowedModelRoutes(null, undefined)).toBe(true)
+    expect(sameAllowedModelRoutes(undefined, null)).toBe(true)
+    expect(sameAllowedModelRoutes([], [])).toBe(true)
+    expect(sameAllowedModelRoutes([first, second], [second, first])).toBe(true)
+    expect(sameAllowedModelRoutes([first], [second])).toBe(false)
+    expect(sameAllowedModelRoutes([first, second], [first])).toBe(false)
   })
 
   it('allows pure inheritance but rejects explicit values outside a Session allowlist', () => {

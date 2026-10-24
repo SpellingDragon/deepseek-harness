@@ -26,6 +26,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import SubagentModelSelectionConfig from '../src/model-selection-settings.ts'
+import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import { modelSelectionSetupAgent, ownContext, setup, testToolSignal, text } from './harness.ts'
 
 class CatalogAdapter extends LlmAdapter {
@@ -93,6 +94,25 @@ async function setupAllowedListTool() {
     { provider: 'alpha', model: 'unlisted' },
     { provider: 'missing', model: 'hidden' },
   ])
+}
+
+async function setupLiveListTool() {
+  const ctx = ownContext(new Context())
+  await mountAgentLoopTestDependencies(ctx)
+  await ctx.plugin(AgentLoop, { agents: [] })
+  const settings = await liveConfig(ctx, SubagentModelSelectionConfig, {
+    enabled: true,
+    allowedModels: [{ provider: 'alpha', model: 'fast' }],
+  })
+  await mountWorkingDirectoryFixture(ctx)
+  await ctx.plugin(SubagentRuntime)
+  await ctx.plugin(tool, { provider: 'unused', modelDiscovery: true })
+  const { agent } = await ctx.agents.create({
+    sessionId: SessionId('live-discovery-parent'),
+    agentOptions: { provider: 'alpha', model: 'plain' },
+  })
+  callingAgents.set(ctx, agent)
+  return { ctx, settings }
 }
 
 let counter = 0
@@ -260,6 +280,25 @@ describe('list_subagent_models', () => {
     const denied = await call(ctx, { provider: 'alpha', model: 'plain' })
     expect(denied.isError).toBe(true)
     expect(text(denied)).toContain('is not allowed for this Session')
+  })
+
+  it('follows preference changes for the calling Session', async () => {
+    const { ctx, settings } = await setupLiveListTool()
+    ctx.llm.registerAdapter(['alpha', 'beta'], new CatalogAdapter())
+
+    expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/fast — Fast: Focused work.')
+    expect(text(await call(ctx, { provider: 'alpha', model: 'fast' }))).toContain('alpha/fast — Fast')
+
+    await settings.update({ allowedModels: [{ provider: 'alpha', model: 'plain' }] })
+    expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/plain — Plain')
+    const removed = await call(ctx, { provider: 'alpha', model: 'fast' })
+    expect(removed.isError).toBe(true)
+    expect(text(removed)).toContain('is not allowed for this Session')
+
+    await settings.update({ enabled: false })
+    expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/plain — Plain')
+    expect(text(await call(ctx, { provider: 'alpha', model: 'plain' }))).toContain('alpha/plain — Plain')
+    await ctx.fiber.dispose()
   })
 
   it('rejects an unauthorized provider before calling its adapter catalog', async () => {

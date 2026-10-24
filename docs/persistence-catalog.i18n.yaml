@@ -9,8 +9,8 @@
   en: 1387c4505dde2faf
   zh: 48570fa1c13d6910
 /session-persistence-event-catalog/persistence-type-fingerprints:
-  en: 3e24343c4745793d
-  zh: 90f808fd6b79c5a3
+  en: 580e90b9654fff5c
+  zh: 7c8be1034099bbc9
 /session-persistence-event-catalog/event-envelope:
   en: 56414ffd00cdc32a
   zh: 6dc11eb013e95e41
@@ -213,8 +213,11 @@
   en: f5d53639dc5afdfc
   zh: 8c553e7397d08832
 /session-persistence-event-catalog/events/subagent/subagent-model-selection-policy-log-only:
-  en: cdf085d18fae747a
-  zh: 83cd5cf56fef4050
+  en: fdb49c335024795d
+  zh: 025de46874856cfe
+/session-persistence-event-catalog/events/subagent/subagent-model-selection-policy-change-log-only:
+  en: 983fd4995667f5df
+  zh: 38edfc4afe82417b
 /session-persistence-event-catalog/events/system:
   en: 8cac41d2fb575975
   zh: 8cac41d2fb575975
@@ -786,8 +789,11 @@
   en: e932f06c949f5f6c
   zh: e932f06c949f5f6c
 /session-persistence-event-catalog/resolved-persistence-types/subagent-model-selection-policy:
-  en: 25ccd80df944ac00
-  zh: 25ccd80df944ac00
+  en: 919b5b3fcc9a2326
+  zh: 919b5b3fcc9a2326
+/session-persistence-event-catalog/resolved-persistence-types/subagent-model-selection-policy-change:
+  en: ada066675e362190
+  zh: ada066675e362190
 /session-persistence-event-catalog/resolved-persistence-types/success:
   en: 801923015f7dc7e4
   zh: 801923015f7dc7e4
@@ -1407,8 +1413,11 @@
   en: 1afbe8196f161601
   zh: a320a36a8928817c
 /session-persistence-event-catalog/resolved-persistence-types/allowedmodels:
-  en: 6178321110ceb69d
-  zh: 0a9d94cab9d57487
+  en: dcecaffb63cfedbb
+  zh: 0d3f7d025c9f1edf
+/session-persistence-event-catalog/resolved-persistence-types/allowedmodels-enabled:
+  en: a3dff90e99f57aec
+  zh: 03388e5c8ba5ad53
 /session-persistence-event-catalog/resolved-persistence-types/args-commandid-name-source:
   en: a117573a5d58cb3c
   zh: d5ad59e17a3a815d
@@ -2088,8 +2097,11 @@
   en: 2adab4361a5b558d
   zh: 7f2a8da669f9e117
 /session-persistence-event-catalog/resolved-persistence-types/type-subagent-model-selection-policy:
-  en: 9dd6539f4a5d9d16
-  zh: d886630b70a4bce8
+  en: 46fa8d9f0237b55f
+  zh: 8d77f714b2988522
+/session-persistence-event-catalog/resolved-persistence-types/type-subagent-model-selection-policy-change:
+  en: 55e58c25e0eb5c60
+  zh: 681fe6aabd23d270
 /session-persistence-event-catalog/resolved-persistence-types/type-system-message:
   en: 7fb45f52932f268b
   zh: 5019109b99274589

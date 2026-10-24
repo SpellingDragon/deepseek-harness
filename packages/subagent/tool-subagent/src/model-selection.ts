@@ -35,6 +35,25 @@ export function modelRouteKey(route: AllowedModelRoute): string {
 }
 
 /**
+ * Compare two authorization lists without treating their order as meaningful.
+ * Omitted and null lists both mean no policy.
+ * @param left - One route list or absence.
+ * @param right - The other route list or absence.
+ * @returns Whether both describe the same exact route set.
+ */
+export function sameAllowedModelRoutes(
+  left: readonly AllowedModelRoute[] | null | undefined,
+  right: readonly AllowedModelRoute[] | null | undefined,
+): boolean {
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return (left ?? null) === (right ?? null)
+  }
+  if (left.length !== right.length) return false
+  const keys = new Set(left.map(modelRouteKey))
+  return right.every(route => keys.has(modelRouteKey(route)))
+}
+
+/**
  * Reject malformed or duplicate route policy entries at a durable or configuration boundary.
  * @param routes - Candidate exact routes to validate.
  * @returns an assertion that the candidate is a validated exact-route array.

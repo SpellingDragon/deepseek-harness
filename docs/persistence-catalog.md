@@ -64,6 +64,7 @@ The [format references](persistence-changes/historical-formats/README.md) cover 
 | `event:subagent/catalog` | event | `53750b9abf61efb7992b0aadc3e247ec927449c63266df28230fd1139f5590ac` | [`{ type: "subagent/catalog" }`](#persistence-type-sha256-53750b9abf61efb7992b0aadc3e247ec927449c63266df28230fd1139f5590ac) |
 | `event:subagent/descriptor` | event | `b79ada42962cad0190a9d465805260567621fa3a4abd757eb31e6016b52d5ab5` | [`{ type: "subagent/descriptor" }`](#persistence-type-sha256-b79ada42962cad0190a9d465805260567621fa3a4abd757eb31e6016b52d5ab5) |
 | `event:subagent/model-selection-policy` | event | `a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc` | [`{ type: "subagent/model-selection-policy" }`](#persistence-type-sha256-a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc) |
+| `event:subagent/model-selection-policy-change` | event | `b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58` | [`{ type: "subagent/model-selection-policy-change" }`](#persistence-type-sha256-b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58) |
 | `event:system/message` | event | `69081694be231d56fd9580ba14645fd5e35373202605d5c5c841a9435b5fa3b1` | [`{ type: "system/message" }`](#persistence-type-sha256-69081694be231d56fd9580ba14645fd5e35373202605d5c5c841a9435b5fa3b1) |
 | `event:team/member` | event | `4fb59762612c3e3ac3a3bd4f84c9c148d3c3893bd422ba2b201cc039fabd49bc` | [`{ type: "team/member" }`](#persistence-type-sha256-4fb59762612c3e3ac3a3bd4f84c9c148d3c3893bd422ba2b201cc039fabd49bc) |
 | `event:team/message/delivered` | event | `48f9c19417a1abbedfa59f4667bba36b93ac2db407adf5e84cb3ba0de30942cb` | [`{ type: "team/message/delivered" }`](#persistence-type-sha256-48f9c19417a1abbedfa59f4667bba36b93ac2db407adf5e84cb3ba0de30942cb) |
@@ -963,9 +964,9 @@ Source: [`packages/subagent/subagent/src/descriptor.ts:38`](../packages/subagent
 
 ```ts persistence-catalog
 /**
- * Records this Session’s authorized child provider/model routes. Appended
- * before the first model request; absence restricts explicit selection
- * to the current parent route. Log-only: it carries
+ * Records this Session’s initial authorized child provider/model routes.
+ * Appended before the first model request when the Host preference is
+ * enabled. A later policy-change event supersedes it. Log-only: it carries
  * no `surfaceOp` and never enters model history.
  */
 'subagent/model-selection-policy': {
@@ -974,7 +975,30 @@ Source: [`packages/subagent/subagent/src/descriptor.ts:38`](../packages/subagent
 }
 ```
 
-Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:21`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+
+<a id="subagentmodel-selection-policy-change--log-only"></a>
+
+#### `subagent/model-selection-policy-change` — log-only
+
+```ts persistence-catalog
+/**
+ * Records a live change to this Session’s authorized child routes.
+ * Appended when the Host preference changes while the Session is live, or
+ * when a restored Session observes a different current preference. The
+ * latest policy event wins; `enabled: false` restricts explicit selection
+ * to the current parent route without discarding saved routes. Log-only:
+ * it carries no `surfaceOp` and never enters model history.
+ */
+'subagent/model-selection-policy-change': {
+  /** Whether child model selection is enabled for this Session. */
+  enabled: boolean
+  /** Current saved routes; ignored unless `enabled` is true. */
+  allowedModels: AllowedModelRoute[]
+}
+```
+
+Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:34`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 ### `system/*`
 
@@ -2626,6 +2650,14 @@ SHA-256: `5ebce1317eacd2c148456627a09668e927ee15c204f0643f5ea76b46b54a2647`
 SHA-256: `0a8a062bc9c3c0d97fd97742262f2ea53dd32297f834e81114870d38ac3dc6da`
 
 `"subagent/model-selection-policy"`
+
+<a id="persistence-type-sha256-318a35ec8fd5ec7129c54f98965c55528f9adc12f3ca83f93fd83cefd05f14ed"></a>
+
+### `"subagent/model-selection-policy-change"`
+
+SHA-256: `318a35ec8fd5ec7129c54f98965c55528f9adc12f3ca83f93fd83cefd05f14ed`
+
+`"subagent/model-selection-policy-change"`
 
 <a id="persistence-type-sha256-511801b0a6470d98566e8385d3dffddb2b67f79fcf73ed6056f46c3cc0a245a7"></a>
 
@@ -5810,11 +5842,24 @@ Sources: [`packages/preset/agent-preset-registry/src/session.ts:31`](../packages
 
 SHA-256: `0d47a8f3d847243c4488e755ad4cab7a04ac5d4621b9c81865524cf3f4d8536f`
 
-Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:21`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
 
 | Property | Presence | Type |
 |---|---|---|
 | `allowedModels` | required | [`SessionTitleModelIdentity[]`](#persistence-type-sha256-ba77b58995e36f14bb13886b0493d0a1a63d5db10b1a6cd9f6ac65a72cf832ec) |
+
+<a id="persistence-type-sha256-2847ace8d73ec16e801a1169abfe554a03cc36f9623f9a46b00f8f8cb8489e2d"></a>
+
+### `{ allowedModels, enabled }`
+
+SHA-256: `2847ace8d73ec16e801a1169abfe554a03cc36f9623f9a46b00f8f8cb8489e2d`
+
+Sources: [`packages/subagent/tool-subagent/src/model-selection-state.ts:34`](../packages/subagent/tool-subagent/src/model-selection-state.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `allowedModels` | required | [`SessionTitleModelIdentity[]`](#persistence-type-sha256-ba77b58995e36f14bb13886b0493d0a1a63d5db10b1a6cd9f6ac65a72cf832ec) |
+| `enabled` | required | `boolean` |
 
 <a id="persistence-type-sha256-a853902cfab417b8f08aa51ad6855fea46f34ed4588a74e47403035111d0fb86"></a>
 
@@ -8801,6 +8846,22 @@ SHA-256: `a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc`
 | `seq` | required | `number` |
 | `time` | required | `number` |
 | `type` | required | `"subagent/model-selection-policy"` |
+
+<a id="persistence-type-sha256-b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58"></a>
+
+<a id="persistence-type-eventsubagentmodel-selection-policy-change"></a>
+
+### `{ type: "subagent/model-selection-policy-change" }`
+
+SHA-256: `b9f6114f9ef2c1499609aa8b3b253576726ac98ee9e96403f36a2c6db7984e58`
+
+| Property | Presence | Type |
+|---|---|---|
+| `data` | required | [`{ allowedModels, enabled }`](#persistence-type-sha256-2847ace8d73ec16e801a1169abfe554a03cc36f9623f9a46b00f8f8cb8489e2d) |
+| `ignorable` | optional | `true` |
+| `seq` | required | `number` |
+| `time` | required | `number` |
+| `type` | required | `"subagent/model-selection-policy-change"` |
 
 <a id="persistence-type-sha256-69081694be231d56fd9580ba14645fd5e35373202605d5c5c841a9435b5fa3b1"></a>
 
