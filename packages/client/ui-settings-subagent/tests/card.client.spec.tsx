@@ -144,10 +144,51 @@ describe('Subagent model selection fields', () => {
       name: `Fast ${en.subagentModelSelectionEffort}`,
     }) as HTMLSelectElement
     expect(select.value).toBe('high')
+    fireEvent.click(select)
     fireEvent.change(select, { target: { value: 'max' } })
     expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', 'max')
     fireEvent.change(select, { target: { value: '' } })
     expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', undefined)
+  })
+
+  it('shows the model default and retains a saved effort absent from the catalog', () => {
+    renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [{
+        key: 'alpha\0fast',
+        provider: 'alpha',
+        model: 'fast',
+        providerName: 'Alpha API',
+        modelName: 'Fast',
+        efforts: [{ id: 'high', name: 'High' }],
+        available: true,
+        selected: true,
+      }],
+    })
+    const select = screen.getByRole('combobox', {
+      name: `Fast ${en.subagentModelSelectionEffort}`,
+    }) as HTMLSelectElement
+    expect(select.value).toBe('')
+    expect(screen.getByRole('option', { name: en.subagentModelSelectionEffortDefault })).toBeTruthy()
+
+    cleanup()
+    renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [{
+        key: 'alpha\0fast',
+        provider: 'alpha',
+        model: 'fast',
+        providerName: 'Alpha API',
+        modelName: 'Fast',
+        efforts: [{ id: 'high', name: 'High' }],
+        reasoningEffort: 'legacy-effort',
+        available: true,
+        selected: true,
+      }],
+    })
+    expect(screen.getByRole('option', { name: 'legacy-effort' })).toBeTruthy()
   })
 
   it('renders directory progress, failures, unavailable routes, and validation', () => {

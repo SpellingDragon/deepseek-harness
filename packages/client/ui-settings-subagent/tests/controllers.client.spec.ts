@@ -174,6 +174,39 @@ describe('SubagentModelSelectionCardController', () => {
     })
   })
 
+  it('ignores effort writes for unknown, unselected, or unsupported routes', async () => {
+    const host = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(host)
+    const models = modelsApi({
+      groups: [{
+        id: 'alpha',
+        name: 'Alpha API',
+        models: [
+          { id: 'fast', name: 'Fast', reasoning: { efforts: [{ id: 'high', name: 'High' }, { id: 'max', name: 'Max' }] } },
+          { id: 'deep', name: 'Deep', reasoning: { efforts: [{ id: 'max', name: 'Max' }] } },
+        ],
+      }],
+    })
+    const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
+    host.publish({
+      status: 'ready', writable: true, revision: 2,
+      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+    })
+    const face = controller.inject()
+    const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(2) })
+
+    face.setModelReasoningEffort('missing', 'high')
+    face.setModelReasoningEffort('alpha\0deep', 'max')
+    face.setModelReasoningEffort('alpha\0fast', 'bogus')
+    expect(state().dirty).toBe(false)
+
+    face.setModelReasoningEffort('alpha\0fast', 'max')
+    expect(state().dirty).toBe(true)
+    face.setModelReasoningEffort('alpha\0fast', undefined)
+    expect(state().dirty).toBe(false)
+  })
+
   it('starts an empty draft when a ready test scope has no decoded value', () => {
     const host = stubConfigForm<SubagentModelSelectionSettings>()
     const controller = new SubagentModelSelectionCardController(host.scope, modelsApi().ctx)
@@ -525,6 +558,7 @@ describe('SubagentModelSelectionCardController', () => {
 
     face.toggleEnabled()
     face.toggleModel('alpha\0fast')
+    face.setModelReasoningEffort('alpha\0fast', 'high')
     face.save()
     expect(host.mutate).not.toHaveBeenCalled()
 

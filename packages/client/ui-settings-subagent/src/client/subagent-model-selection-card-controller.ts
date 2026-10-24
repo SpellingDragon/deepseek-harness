@@ -252,10 +252,11 @@ export class SubagentModelSelectionCardController {
     if (candidate === undefined || !candidate.selected
       || (effort !== undefined && !candidate.efforts.some(option => option.id === effort))) return
     const routes = this.beginDraft()
-    const route = routes.get(key)
-    if (route === undefined) return
-    const { reasoningEffort: _current, ...withoutEffort } = route
-    routes.set(key, effort === undefined ? withoutEffort : { ...withoutEffort, reasoningEffort: effort })
+    routes.set(key, {
+      provider: candidate.provider,
+      model: candidate.model,
+      ...(effort === undefined ? {} : { reasoningEffort: effort }),
+    })
     this.failed = false
     this.publish()
   }
