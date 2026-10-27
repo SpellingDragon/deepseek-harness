@@ -54,7 +54,7 @@ const modelSelectionPolicySchema = zod.array(zod.object({
  */
 export const subagentModelSelectionProjectionDefinition = {
   key: 'subagentModelSelectionPolicy',
-  stateVersion: 2,
+  stateVersion: 3,
   stateSchema: modelSelectionPolicySchema,
   init: () => null,
   apply: (policy, event) => {

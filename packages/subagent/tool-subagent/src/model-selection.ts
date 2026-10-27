@@ -193,32 +193,25 @@ export function requestedAgentOptions(
 }
 
 /**
- * Apply an authorized route's configured default reasoning effort and context
- * window when the caller supplied neither value.
+ * Apply an authorized route's configured default reasoning effort when the
+ * caller supplied neither a route effort nor a configured effort.
  * @param routes - Authorized exact routes, or undefined without a policy.
  * @param parentOptions - Current parent values that supply missing child values.
  * @param requested - Effective child options after request/config merging.
- * @returns Child options with the matching route's defaults, when present.
+ * @returns Child options with the matching route's default effort, when present.
  */
-export function applyAllowedRouteDefaults(
+export function applyAllowedRouteDefaultEffort(
   routes: readonly AllowedModelRoute[] | undefined,
   parentOptions: AgentOptions,
   requested: AgentOptions | undefined,
 ): AgentOptions | undefined {
-  if (routes === undefined) return requested
+  if (routes === undefined || requested?.reasoningEffort !== undefined) return requested
   const provider = requested?.provider ?? parentOptions.provider
   const model = requested?.model ?? parentOptions.model
   if (provider === undefined || model === undefined) return requested
   const route = allowedRouteFor(routes, provider, model)
-  if (route === undefined) return requested
-  const reasoningEffort = requested?.reasoningEffort === undefined ? route.reasoningEffort : undefined
-  const contextWindow = requested?.contextWindow === undefined ? route.contextWindow : undefined
-  if (reasoningEffort === undefined && contextWindow === undefined) return requested
-  return {
-    ...requested,
-    ...reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(reasoningEffort) },
-    ...contextWindow === undefined ? {} : { contextWindow },
-  }
+  if (route?.reasoningEffort === undefined) return requested
+  return { ...requested, reasoningEffort: ReasoningEffortId(route.reasoningEffort) }
 }
 
 /**

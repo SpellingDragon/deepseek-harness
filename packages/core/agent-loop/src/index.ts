@@ -154,10 +154,6 @@ function assertAgentOptions(options: AgentOptions): void {
     && (!Number.isSafeInteger(options.maxTokens) || options.maxTokens <= 0)) {
     throw new TypeError('agent maxTokens must be a positive safe integer')
   }
-  if (options.contextWindow !== undefined
-    && (!Number.isSafeInteger(options.contextWindow) || options.contextWindow <= 0)) {
-    throw new TypeError('agent contextWindow must be a positive safe integer')
-  }
 }
 
 /** One session's owned write handle plus the count of events already stored through it. */
@@ -305,7 +301,6 @@ export class AgentLoop extends Service implements AgentFactory {
       model: z.string(),
       reasoningEffort: z.string().min(1) as z<ReturnType<typeof ReasoningEffortId>>,
       maxTokens: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
-      contextWindow: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
       cwd: z.string(),
       resumeSessionId: z.string(),
     })).default([]),

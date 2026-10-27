@@ -38,8 +38,6 @@ export interface AgentOptions {
   reasoningEffort?: ReasoningEffortId | undefined
   /** Maximum output tokens for each conversation-model request. */
   maxTokens?: number
-  /** Context-window override used for request metadata and compaction; omission uses adapter metadata. */
-  contextWindow?: number
 }
 
 /** Options for {@link Agent.cancel}. */

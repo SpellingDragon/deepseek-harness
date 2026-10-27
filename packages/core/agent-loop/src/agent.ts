@@ -138,7 +138,6 @@ export class ReactLoopAgent implements Agent {
     lastTurn: number,
   ) {
     this.requestSurfaceGeneration = session.surface.contentGeneration
-    this.contextWindowOverride = options.contextWindow
     this.dispatch = agentEvents(loopCtx, this)
     this.scope = createScope(loopCtx, this)
     this.ctx = this.scope.ctx

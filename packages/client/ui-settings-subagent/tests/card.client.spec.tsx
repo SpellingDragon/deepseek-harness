@@ -179,8 +179,14 @@ describe('Subagent model selection fields', () => {
     fireEvent.change(input, { target: { value: '' } })
     expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', undefined)
     actions.setModelContextWindow.mockClear()
-    fireEvent.change(input, { target: { value: '0' } })
+    fireEvent.change(input, { target: { value: '1.5' } })
     expect(actions.setModelContextWindow).not.toHaveBeenCalled()
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByRole('status').textContent).toBe(en.subagentModelSelectionContextWindowInvalid)
+    fireEvent.change(input, { target: { value: '48000' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 48_000)
+    expect(input.getAttribute('aria-invalid')).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('shows the model default and retains a saved effort absent from the catalog', () => {

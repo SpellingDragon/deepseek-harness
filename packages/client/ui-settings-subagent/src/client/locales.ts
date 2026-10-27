@@ -18,6 +18,7 @@ export type SubagentSettingsLocaleKey =
   | 'subagentModelSelectionToggle' | 'subagentModelSelectionChoose' | 'subagentModelSelectionAllowed'
   | 'subagentModelSelectionEffort' | 'subagentModelSelectionEffortDefault'
   | 'subagentModelSelectionContextWindow' | 'subagentModelSelectionContextWindowPlaceholder'
+  | 'subagentModelSelectionContextWindowInvalid'
   | 'subagentModelSelectionLoading' | 'subagentModelSelectionLoadFailed' | 'subagentModelSelectionRetry'
   | 'subagentModelSelectionPartial' | 'subagentModelSelectionUnavailable'
   | 'subagentModelSelectionUnavailableGroup' | 'subagentModelSelectionEmpty'
@@ -54,6 +55,7 @@ export const en: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionEffortDefault: 'Model default',
   subagentModelSelectionContextWindow: 'Context window',
   subagentModelSelectionContextWindowPlaceholder: 'Model default',
+  subagentModelSelectionContextWindowInvalid: 'Enter a whole number of 1 or more.',
   subagentModelSelectionLoading: 'Loading models…',
   subagentModelSelectionLoadFailed: 'Models could not be loaded.',
   subagentModelSelectionRetry: 'Retry',
@@ -97,6 +99,7 @@ export const zh: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionEffortDefault: '模型默认',
   subagentModelSelectionContextWindow: '上下文窗口',
   subagentModelSelectionContextWindowPlaceholder: '模型默认',
+  subagentModelSelectionContextWindowInvalid: '请输入不小于 1 的整数。',
   subagentModelSelectionLoading: '正在加载模型…',
   subagentModelSelectionLoadFailed: '无法加载模型。',
   subagentModelSelectionRetry: '重试',
@@ -149,6 +152,7 @@ export const ja = {
   'subagentModelSelectionEffortDefault': 'モデルのデフォルト',
   'subagentModelSelectionContextWindow': 'コンテキストウィンドウ',
   'subagentModelSelectionContextWindowPlaceholder': 'モデルのデフォルト',
+  'subagentModelSelectionContextWindowInvalid': '1以上の整数を入力してください。',
   'subagentModelSelectionLoading': 'モデルを読み込み中…',
   'subagentModelSelectionLoadFailed': 'モデルを読み込めませんでした。',
   'subagentModelSelectionRetry': '再試行',
@@ -192,6 +196,7 @@ export const es = {
   subagentModelSelectionEffortDefault: 'Predeterminado del modelo',
   subagentModelSelectionContextWindow: 'Ventana de contexto',
   subagentModelSelectionContextWindowPlaceholder: 'Predeterminado del modelo',
+  subagentModelSelectionContextWindowInvalid: 'Introduzca un número entero de 1 o más.',
   subagentModelSelectionLoading: 'Cargando modelos…',
   subagentModelSelectionLoadFailed: 'No se pudieron cargar los modelos.',
   subagentModelSelectionRetry: 'Reintentar',
@@ -235,6 +240,7 @@ export const fr = {
   subagentModelSelectionEffortDefault: 'Valeur par défaut du modèle',
   subagentModelSelectionContextWindow: 'Fenêtre de contexte',
   subagentModelSelectionContextWindowPlaceholder: 'Valeur par défaut du modèle',
+  subagentModelSelectionContextWindowInvalid: 'Entrez un nombre entier de 1 ou plus.',
   subagentModelSelectionLoading: 'Chargement des modèles…',
   subagentModelSelectionLoadFailed: "Les modèles n'ont pas pu être chargés.",
   subagentModelSelectionRetry: 'Réessayer',
@@ -278,6 +284,7 @@ export const de = {
   subagentModelSelectionEffortDefault: 'Modellstandard',
   subagentModelSelectionContextWindow: 'Kontextfenster',
   subagentModelSelectionContextWindowPlaceholder: 'Modellstandard',
+  subagentModelSelectionContextWindowInvalid: 'Geben Sie eine ganze Zahl von 1 oder mehr ein.',
   subagentModelSelectionLoading: 'Modelle werden geladen…',
   subagentModelSelectionLoadFailed: 'Modelle konnten nicht geladen werden.',
   subagentModelSelectionRetry: 'Erneut versuchen',
@@ -321,6 +328,7 @@ export const ru = {
   subagentModelSelectionEffortDefault: 'По умолчанию для модели',
   subagentModelSelectionContextWindow: 'Контекстное окно',
   subagentModelSelectionContextWindowPlaceholder: 'По умолчанию для модели',
+  subagentModelSelectionContextWindowInvalid: 'Введите целое число от 1 или более.',
   subagentModelSelectionLoading: 'Загрузка моделей…',
   subagentModelSelectionLoadFailed: 'Не удалось загрузить модели.',
   subagentModelSelectionRetry: 'Повторить',
@@ -364,6 +372,7 @@ export const pt = {
   subagentModelSelectionEffortDefault: 'Padrão do modelo',
   subagentModelSelectionContextWindow: 'Janela de contexto',
   subagentModelSelectionContextWindowPlaceholder: 'Padrão do modelo',
+  subagentModelSelectionContextWindowInvalid: 'Insira um número inteiro de 1 ou mais.',
   subagentModelSelectionLoading: 'Carregando modelos…',
   subagentModelSelectionLoadFailed: 'Não foi possível carregar os modelos.',
   subagentModelSelectionRetry: 'Tentar novamente',

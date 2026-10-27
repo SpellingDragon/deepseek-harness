@@ -48,7 +48,6 @@ Agents declared in config start automatically when the plugin loads. Each entry 
 | `agents[].provider` / `agents[].model` | — | Model route; both required before step preparation |
 | `agents[].reasoningEffort` | — | Non-empty initial reasoning effort; later choices are recorded in the Session |
 | `agents[].maxTokens` | — | Positive per-request output-token cap |
-| `agents[].contextWindow` | — | Positive context-window override for request metadata and compaction |
 | `agents[].cwd` | — | Workspace directory for a fresh session |
 | `agents[].sessionId` | — | Exact identity: first use creates, a remount resumes materialized history |
 | `agents[].resumeSessionId` | — | Load this persisted session instead of creating one; mutually exclusive with `sessionId` |

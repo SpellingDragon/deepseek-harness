@@ -1,5 +1,6 @@
 /** User control for model-selectable subagent delegation in new sessions. */
 
+import { useState } from 'react'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
@@ -14,6 +15,51 @@ export type SubagentModelSelectionFieldsProps = PropsLocale<'settings.subagent'>
   & Pick<SubagentModelSelectionCardFace,
     'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'setModelContextWindow' | 'retryCatalog'>
   & { state: SubagentModelSelectionCardState }
+
+/** One model's numeric context-window override with local invalid feedback. */
+function ContextWindowInput(props: {
+  candidate: SubagentModelCandidate
+  disabled: boolean
+  label: string
+  placeholder: string
+  invalidLabel: string
+  onChange: (contextWindow: number | undefined) => void
+}) {
+  const [invalid, setInvalid] = useState(false)
+  return (
+    <span className={css.contextWindowGroup}>
+      <input
+        className={`${css.control} ${css.contextWindow}`}
+        type="number"
+        min={1}
+        step={1}
+        inputMode="numeric"
+        aria-label={props.label}
+        aria-invalid={invalid || undefined}
+        placeholder={props.placeholder}
+        value={props.candidate.contextWindow ?? ''}
+        disabled={props.disabled}
+        onClick={(event) => { event.stopPropagation() }}
+        onChange={(event) => {
+          const raw = event.target.value
+          if (raw === '') {
+            setInvalid(false)
+            props.onChange(undefined)
+            return
+          }
+          const contextWindow = Number(raw)
+          if (Number.isSafeInteger(contextWindow) && contextWindow > 0) {
+            setInvalid(false)
+            props.onChange(contextWindow)
+            return
+          }
+          setInvalid(true)
+        }}
+      />
+      {invalid ? <span className={css.invalid} role="status">{props.invalidLabel}</span> : null}
+    </span>
+  )
+}
 
 /**
  * Render the default-off preference and its exact adapter-route choices.
@@ -60,7 +106,7 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
             {candidate.efforts.length > 0
               ? (
                 <select
-                  className={css.effort}
+                  className={`${css.control} ${css.effort}`}
                   aria-label={`${candidate.modelName} ${t('subagentModelSelectionEffort')}`}
                   value={candidate.reasoningEffort ?? ''}
                   disabled={!state.writable || state.saving}
@@ -80,28 +126,14 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
                 </select>
               )
               : null}
-            <input
-              className={css.contextWindow}
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              aria-label={`${candidate.modelName} ${t('subagentModelSelectionContextWindow')}`}
-              placeholder={t('subagentModelSelectionContextWindowPlaceholder')}
-              value={candidate.contextWindow ?? ''}
+            <ContextWindowInput
+              key={candidate.key}
+              candidate={candidate}
               disabled={!state.writable || state.saving}
-              onClick={(event) => { event.stopPropagation() }}
-              onChange={(event) => {
-                const raw = event.target.value
-                if (raw === '') {
-                  props.setModelContextWindow(candidate.key, undefined)
-                  return
-                }
-                const contextWindow = Number(raw)
-                if (Number.isSafeInteger(contextWindow) && contextWindow > 0) {
-                  props.setModelContextWindow(candidate.key, contextWindow)
-                }
-              }}
+              label={`${candidate.modelName} ${t('subagentModelSelectionContextWindow')}`}
+              placeholder={t('subagentModelSelectionContextWindowPlaceholder')}
+              invalidLabel={t('subagentModelSelectionContextWindowInvalid')}
+              onChange={(contextWindow) => { props.setModelContextWindow(candidate.key, contextWindow) }}
             />
           </span>
         )

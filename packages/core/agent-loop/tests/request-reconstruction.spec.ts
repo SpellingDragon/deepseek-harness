@@ -939,8 +939,9 @@ describe('request/context capacity records', () => {
     )
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('capacity-override'), {
-      provider: 'mock', model: 'mock', contextWindow: 64_000,
+      provider: 'mock', model: 'mock',
     })
+    agent.contextWindow = 64_000
 
     send(agent, 'first')
     await waitForIdle(ctx, agent)

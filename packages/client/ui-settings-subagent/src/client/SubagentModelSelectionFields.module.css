@@ -137,7 +137,7 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.effort {
+.control {
   max-width: 128px;
   min-width: 0;
   padding: 2px 4px;
@@ -146,12 +146,15 @@
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font-size: 12px;
-  cursor: pointer;
 }
 
-.effort:disabled {
+.control:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+.effort {
+  cursor: pointer;
 }
 
 .modelControls {
@@ -162,18 +165,18 @@
   min-width: 0;
 }
 
-.contextWindow {
-  width: 128px;
+.contextWindowGroup {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
   min-width: 0;
-  padding: 2px 4px;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary);
-  font-size: 12px;
 }
 
-.contextWindow:disabled {
-  cursor: default;
-  opacity: 0.6;
+.contextWindow {
+  width: 128px;
+}
+
+.contextWindowGroup .invalid {
+  max-width: 160px;
+  text-align: right;
 }

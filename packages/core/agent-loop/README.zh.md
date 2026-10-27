@@ -48,7 +48,6 @@ kind: "package-reference"
 | `agents[].provider` / `agents[].model` | — | 模型路由；步骤准备前两者都必须存在 |
 | `agents[].reasoningEffort` | — | 非空的初始推理强度；后续选择记录在 Session 中 |
 | `agents[].maxTokens` | — | 正数的逐请求输出 token 上限 |
-| `agents[].contextWindow` | — | 正数的上下文窗口覆盖，用于请求元数据和压缩 |
 | `agents[].cwd` | — | 全新会话的工作目录 |
 | `agents[].sessionId` | — | 确切身份：首次使用创建，重新挂载时恢复已实体化的历史 |
 | `agents[].resumeSessionId` | — | 加载这个持久化会话而不是创建新会话；与 `sessionId` 互斥 |

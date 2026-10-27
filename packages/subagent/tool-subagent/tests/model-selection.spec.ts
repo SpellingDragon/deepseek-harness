@@ -16,7 +16,7 @@ import * as mock from './scripted-provider.ts'
 import * as tool from '../src/index.ts'
 import {
   allowedRouteFor,
-  applyAllowedRouteDefaults,
+  applyAllowedRouteDefaultEffort,
   assertAllowedModelRoutes,
   assertAllowedModelSelection,
   preflightChildLlmRoute,
@@ -85,7 +85,7 @@ describe('dsh-tool-subagent model selection', () => {
     )).toBe(false)
   })
 
-  it('validates and applies per-route default reasoning efforts and context windows', () => {
+  it('validates per-route context windows and applies only default efforts', () => {
     const route = { provider: 'alpha', model: 'fast-model', reasoningEffort: 'max', contextWindow: 64_000 }
     const parent = { provider: 'alpha', model: 'fast-model' }
 
@@ -102,26 +102,19 @@ describe('dsh-tool-subagent model selection', () => {
     expect(allowedRouteFor([route], 'alpha', 'fast-model')).toBe(route)
     expect(allowedRouteFor([route], 'alpha', 'other-model')).toBeUndefined()
 
-    expect(applyAllowedRouteDefaults([route], parent, undefined))
-      .toEqual({ reasoningEffort: ReasoningEffortId('max'), contextWindow: 64_000 })
-    expect(applyAllowedRouteDefaults([route], parent, { provider: 'alpha', model: 'fast-model' }))
-      .toEqual({ provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('max'), contextWindow: 64_000 })
-    expect(applyAllowedRouteDefaults([route], parent, {
+    expect(applyAllowedRouteDefaultEffort([route], parent, undefined))
+      .toEqual({ reasoningEffort: ReasoningEffortId('max') })
+    expect(applyAllowedRouteDefaultEffort([route], parent, { provider: 'alpha', model: 'fast-model' }))
+      .toEqual({ provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('max') })
+    expect(applyAllowedRouteDefaultEffort([route], parent, {
       provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('low'),
-    })).toEqual({
-      provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('low'), contextWindow: 64_000,
-    })
-    expect(applyAllowedRouteDefaults([route], parent, {
-      provider: 'alpha', model: 'fast-model', contextWindow: 32_000,
-    })).toEqual({
-      provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('max'), contextWindow: 32_000,
-    })
-    expect(applyAllowedRouteDefaults(
+    })).toEqual({ provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('low') })
+    expect(applyAllowedRouteDefaultEffort(
       [{ provider: 'alpha', model: 'fast-model' }],
       parent,
       { provider: 'alpha', model: 'fast-model' },
     )).toEqual({ provider: 'alpha', model: 'fast-model' })
-    expect(applyAllowedRouteDefaults(undefined, parent, undefined)).toBeUndefined()
+    expect(applyAllowedRouteDefaultEffort(undefined, parent, undefined)).toBeUndefined()
   })
 
   it('allows pure inheritance but rejects explicit values outside a Session allowlist', () => {
@@ -626,17 +619,17 @@ describe('dsh-tool-subagent model selection', () => {
     }, { agent })
     expect(implicit.isError, text(implicit)).toBe(false)
     expect(requests[0]?.agentOptions).toMatchObject({
-      provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('max'), contextWindow: 64_000,
+      provider: 'alpha', model: 'fast-model', reasoningEffort: ReasoningEffortId('max'),
     })
+    expect(requests[0]?.agentOptions).not.toHaveProperty('contextWindow')
 
     const explicit = await callSubagent(ctx, {
       description: 'explicit effort', prompt: 'do it',
       provider: 'alpha', model: 'fast-model', reasoning_effort: 'low',
     }, { agent })
     expect(explicit.isError, text(explicit)).toBe(false)
-    expect(requests[1]?.agentOptions).toMatchObject({
-      reasoningEffort: ReasoningEffortId('low'), contextWindow: 64_000,
-    })
+    expect(requests[1]?.agentOptions).toMatchObject({ reasoningEffort: ReasoningEffortId('low') })
+    expect(requests[1]?.agentOptions).not.toHaveProperty('contextWindow')
   })
 
   it('enforces Session authorization when a fork tool explicitly enables model selection', async () => {

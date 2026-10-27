@@ -13,7 +13,6 @@ function parentAgent(): Agent {
       model: 'parent-model',
       reasoningEffort: ReasoningEffortId('high'),
       maxTokens: 512,
-      contextWindow: 65_536,
     },
     session: Session.create(id),
   } as Agent
@@ -26,12 +25,11 @@ describe('child Agent options', () => {
       model: 'parent-model',
       reasoningEffort: 'high',
       maxTokens: 512,
-      contextWindow: 65_536,
       subagentDepth: 1,
     })
   })
 
-  it('clears inherited effort and context window when the child route changes', () => {
+  it('clears an inherited effort when the child route changes', () => {
     expect(resolveChildAgentOptions(parentAgent(), { model: 'child-model' }, 1)).toEqual({
       provider: 'parent-provider',
       model: 'child-model',
@@ -40,18 +38,16 @@ describe('child Agent options', () => {
     })
   })
 
-  it('keeps explicit child effort and context window when the child route changes', () => {
+  it('keeps an explicit child effort when the child route changes', () => {
     expect(resolveChildAgentOptions(parentAgent(), {
       provider: 'child-provider',
       model: 'child-model',
       reasoningEffort: ReasoningEffortId('max'),
-      contextWindow: 32_000,
     }, 1)).toEqual({
       provider: 'child-provider',
       model: 'child-model',
       reasoningEffort: 'max',
       maxTokens: 512,
-      contextWindow: 32_000,
       subagentDepth: 1,
     })
   })
@@ -74,7 +70,6 @@ describe('child Agent options', () => {
       model: 'current-model',
       reasoningEffort: 'low',
       maxTokens: 512,
-      contextWindow: 65_536,
       subagentDepth: 1,
     })
   })

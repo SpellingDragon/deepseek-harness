@@ -288,19 +288,6 @@ describe('agent loop', () => {
     },
   )
 
-  it.each([0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
-    'rejects invalid AgentOptions.contextWindow %s before publication',
-    async (contextWindow) => {
-      const ctx = await harness(new MockAdapter([]))
-      await expect(ctx.agentLoop.create(
-        SessionId('invalid-context-window'),
-        { provider: 'mock', model: 'mock', contextWindow },
-      )).rejects.toThrow('agent contextWindow must be a positive safe integer')
-      expect(ctx.agents.list()).toEqual([])
-      expect(ctx.sessions.list()).toEqual([])
-    },
-  )
-
   it('seeds a valid AgentOptions.maxTokens into the first model request', async () => {
     const adapter = new MockAdapter([textResponse('bounded')])
     const ctx = await harness(adapter)

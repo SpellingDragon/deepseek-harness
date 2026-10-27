@@ -40,9 +40,9 @@ const handle = await ctx.agents.create({
 await handle.dispose()   // stops the loop, unregisters, removes the session, unwinds the scope
 ```
 
-`AgentOptions` 提供初始提供方／模型路由、可选的由适配器定义的 `reasoningEffort`、可选的正数 `maxTokens` 输出上限，以及可选的正数 `contextWindow` 覆盖。循环会校验确切模型的推理（reasoning）支持、解析适配器默认值、把生效值记录在请求头中，并将它们应用到每个对话请求。可选的 `setup(agentCtx, agent)` 回调会在 agent 发布之前组合其作用域世界：`agentCtx` 拥有注册，显式的未发布 Agent 则提供其 Session；Context 不含反向 Agent 属性。作用域工具、提示词段与监听器在 `agent/created` 之前就已存在。Setup 只做组合：创建完成后才能驱动 agent。 setup 开始前 Session 已进入 Store 并完成 `session/created`，因此初始化事件通过实时事件流发出。
+`AgentOptions` 提供初始提供方／模型路由、可选的由适配器定义的 `reasoningEffort`，以及可选的正数 `maxTokens` 输出上限。循环会校验确切模型的推理（reasoning）支持、解析适配器默认值、把生效值记录在请求头中，并将它们应用到每个对话请求。可选的 `setup(agentCtx, agent)` 回调会在 agent 发布之前组合其作用域世界：`agentCtx` 拥有注册，显式的未发布 Agent 则提供其 Session；Context 不含反向 Agent 属性。作用域工具、提示词段与监听器在 `agent/created` 之前就已存在。Setup 只做组合：创建完成后才能驱动 agent。 setup 开始前 Session 已进入 Store 并完成 `session/created`，因此初始化事件通过实时事件流发出。
 
-`agent.contextWindow` 是用于 `request/context` 元数据和压缩的实时上下文窗口覆盖。赋值为正安全整数后，预算改用该值而非适配器的确切模型容量；赋值 `undefined` 则回到适配器元数据。该访问器独立于模型选择，因此设置所有者可以在轮次之间改变容量而无需重建 Agent。适配器仍会执行其真实请求上限。
+`agent.contextWindow` 是用于 `request/context` 元数据和压缩的实时上下文窗口覆盖。它不是 `AgentOptions` 字段；由拥有该设置的设置服务在存活 Agent 上设置。赋值为正安全整数后，预算改用该值而非适配器的确切模型容量；赋值 `undefined` 则回到适配器元数据。该访问器独立于模型选择，因此设置所有者可以在轮次之间改变容量而无需重建 Agent。适配器仍会执行其真实请求上限。
 
 <a id="model-selection"></a>
 ### 选择模型
