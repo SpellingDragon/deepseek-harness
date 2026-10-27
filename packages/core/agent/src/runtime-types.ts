@@ -38,6 +38,8 @@ export interface AgentOptions {
   reasoningEffort?: ReasoningEffortId | undefined
   /** Maximum output tokens for each conversation-model request. */
   maxTokens?: number
+  /** Context-window override used for request metadata and compaction; omission uses adapter metadata. */
+  contextWindow?: number
 }
 
 /** Options for {@link Agent.cancel}. */
@@ -197,6 +199,12 @@ declare module './types.ts' {
     readonly model: Model
     /** Agent-owned access to durable pending work. */
     readonly inbox: Inbox
+    /**
+     * Live context-window override used by request metadata and compaction.
+     * Undefined follows the adapter's model metadata; a settings owner may
+     * replace it without recreating the Agent.
+     */
+    contextWindow?: number | undefined
     /** The current lifecycle state, mirrored on every `agent/status` transition. */
     readonly status: AgentStatus
     /** Agent-scoped context; its contributions are agent-local, unwind on disposal, and reject registration afterward. */

@@ -681,6 +681,18 @@ describe('pressure measurement and retention', () => {
     await expect(compactIfNeeded(compact, session)).resolves.not.toBeNull()
   })
 
+  it('uses an Agent context-window override before adapter metadata', async () => {
+    const ctx = createContext(1_000)
+    const compact = service({ auto: false, thresholdRatio: 0.8, retainRatio: 0.1 }, ctx)
+    const session = conversation(4)
+    const measured = ctx.tokenMeter.measure(session).totalTokens
+    expect(measured).toBeLessThan(800)
+
+    const overridden = agent(session, MODEL)
+    overridden.contextWindow = measured
+    await expect(compact.compactIfNeeded(overridden, 'pressure', SIGNAL)).resolves.not.toBeNull()
+  })
+
   it('requires capacity only for proactive pressure, not provider-confirmed overflow', async () => {
     const ctx = new Context()
     void new LlmRuntime(ctx)

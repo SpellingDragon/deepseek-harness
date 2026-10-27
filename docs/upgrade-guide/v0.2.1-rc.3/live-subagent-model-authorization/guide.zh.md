@@ -9,9 +9,9 @@ description: 子智能体模型选择设置现在会应用于运行中和恢复�
 
 ## 变更
 
-保存子智能体模型选择设置现在会更新所有运行中的 Session（包括子 Session）以及此后恢复的 Session。此前只有保存后创建的 Session 使用新授权。每个获准模型还可以携带一个可选的默认推理强度。Session 日志现在可能包含 `subagent/model-selection-policy-change` 事件，以及带 `reasoningEffort` 的授权路由。
+保存子智能体模型选择设置现在会更新所有运行中的 Session（包括子 Session）以及此后恢复的 Session。此前只有保存后创建的 Session 使用新授权。每个获准模型还可以携带一个可选的默认推理强度和一个仅作用于子级的上下文窗口覆盖。Session 日志现在可能包含 `subagent/model-selection-policy-change` 事件，以及带 `reasoningEffort` 或 `contextWindow` 的授权路由。
 
-旧版 harness 不认识这个必需事件或路由强度字段，会拒绝打开受影响的 Session。不提供降级支持。
+旧版 harness 不认识这个必需事件或路由强度/上下文窗口字段，会拒绝打开受影响的 Session。不提供降级支持。
 
 ## 迁移
 

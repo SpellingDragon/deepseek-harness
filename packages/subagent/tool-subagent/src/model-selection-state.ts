@@ -14,10 +14,10 @@ declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     /**
      * Records this Session’s initial authorized child provider/model routes.
-     * Each route may carry a default reasoning effort. Appended before the
-     * first model request when the Host preference is enabled. A later
-     * policy-change event supersedes it. Log-only: it carries no `surfaceOp`
-     * and never enters model history.
+     * Each route may carry default reasoning effort and context-window
+     * settings. Appended before the first model request when the Host
+     * preference is enabled. A later policy-change event supersedes it.
+     * Log-only: it carries no `surfaceOp` and never enters model history.
      */
     'subagent/model-selection-policy': {
       /** Exact routes this Session may select explicitly for a child. */
@@ -35,7 +35,7 @@ declare module '@deepseek-ai/dsh-session/types' {
     'subagent/model-selection-policy-change': {
       /** Whether child model selection is enabled for this Session. */
       enabled: boolean
-      /** Current saved routes and their default efforts; ignored unless `enabled` is true. */
+      /** Current saved routes and their default efforts/windows; ignored unless `enabled` is true. */
       allowedModels: AllowedModelRoute[]
     }
   }
@@ -45,6 +45,7 @@ const modelSelectionPolicySchema = zod.array(zod.object({
   provider: zod.string().min(1),
   model: zod.string().min(1),
   reasoningEffort: zod.string().min(1).optional(),
+  contextWindow: zod.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
 }).strict()).min(1).nullable() as zod.ZodType<AllowedModelRoute[] | null>
 
 /**

@@ -11,7 +11,8 @@ import css from './SubagentModelSelectionFields.module.css'
 
 /** Plain model state and callbacks supplied by the owning Subagent card. */
 export type SubagentModelSelectionFieldsProps = PropsLocale<'settings.subagent'>
-  & Pick<SubagentModelSelectionCardFace, 'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'retryCatalog'>
+  & Pick<SubagentModelSelectionCardFace,
+    'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'setModelContextWindow' | 'retryCatalog'>
   & { state: SubagentModelSelectionCardState }
 
 /**
@@ -53,27 +54,56 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
         <span className={css.modelName}>{candidate.modelName}</span>
         <span className={css.route}>{`${candidate.providerName} · ${candidate.provider}/${candidate.model}`}</span>
       </span>
-      {candidate.available && candidate.selected && candidate.efforts.length > 0
+      {candidate.available && candidate.selected
         ? (
-          <select
-            className={css.effort}
-            aria-label={`${candidate.modelName} ${t('subagentModelSelectionEffort')}`}
-            value={candidate.reasoningEffort ?? ''}
-            disabled={!state.writable || state.saving}
-            onClick={(event) => { event.stopPropagation() }}
-            onChange={(event) => {
-              props.setModelReasoningEffort(candidate.key, event.target.value === '' ? undefined : event.target.value)
-            }}
-          >
-            <option value="">{t('subagentModelSelectionEffortDefault')}</option>
-            {candidate.reasoningEffort !== undefined
-              && !candidate.efforts.some(effort => effort.id === candidate.reasoningEffort)
-              ? <option value={candidate.reasoningEffort}>{candidate.reasoningEffort}</option>
+          <span className={css.modelControls}>
+            {candidate.efforts.length > 0
+              ? (
+                <select
+                  className={css.effort}
+                  aria-label={`${candidate.modelName} ${t('subagentModelSelectionEffort')}`}
+                  value={candidate.reasoningEffort ?? ''}
+                  disabled={!state.writable || state.saving}
+                  onClick={(event) => { event.stopPropagation() }}
+                  onChange={(event) => {
+                    props.setModelReasoningEffort(candidate.key, event.target.value === '' ? undefined : event.target.value)
+                  }}
+                >
+                  <option value="">{t('subagentModelSelectionEffortDefault')}</option>
+                  {candidate.reasoningEffort !== undefined
+                    && !candidate.efforts.some(effort => effort.id === candidate.reasoningEffort)
+                    ? <option value={candidate.reasoningEffort}>{candidate.reasoningEffort}</option>
+                    : null}
+                  {candidate.efforts.map(effort => (
+                    <option key={effort.id} value={effort.id}>{effort.name}</option>
+                  ))}
+                </select>
+              )
               : null}
-            {candidate.efforts.map(effort => (
-              <option key={effort.id} value={effort.id}>{effort.name}</option>
-            ))}
-          </select>
+            <input
+              className={css.contextWindow}
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              aria-label={`${candidate.modelName} ${t('subagentModelSelectionContextWindow')}`}
+              placeholder={t('subagentModelSelectionContextWindowPlaceholder')}
+              value={candidate.contextWindow ?? ''}
+              disabled={!state.writable || state.saving}
+              onClick={(event) => { event.stopPropagation() }}
+              onChange={(event) => {
+                const raw = event.target.value
+                if (raw === '') {
+                  props.setModelContextWindow(candidate.key, undefined)
+                  return
+                }
+                const contextWindow = Number(raw)
+                if (Number.isSafeInteger(contextWindow) && contextWindow > 0) {
+                  props.setModelContextWindow(candidate.key, contextWindow)
+                }
+              }}
+            />
+          </span>
         )
         : !candidate.available
           ? <span className={css.unavailable}>{t('subagentModelSelectionUnavailable')}</span>

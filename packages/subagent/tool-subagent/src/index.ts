@@ -21,7 +21,7 @@ import {
 } from '@deepseek-ai/dsh-subagent'
 import type { SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import {
-  applyAllowedRouteDefaultEffort,
+  applyAllowedRouteDefaults,
   assertAllowedModelSelection,
   hasConfiguredLlmSelection,
   hasDelegationModelRequest,
@@ -284,7 +284,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
           const configuredChildAgentOptions = requiresConfiguredPreflight && providerRouteDefaults !== undefined
             ? { ...providerRouteDefaults, ...config.agentOptions }
             : config.agentOptions
-          const requestedChildAgentOptions = applyAllowedRouteDefaultEffort(
+          const requestedChildAgentOptions = applyAllowedRouteDefaults(
             routes,
             parentOptions,
             requestedAgentOptions(

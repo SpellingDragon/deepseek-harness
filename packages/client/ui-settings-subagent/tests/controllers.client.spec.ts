@@ -207,6 +207,109 @@ describe('SubagentModelSelectionCardController', () => {
     expect(state().dirty).toBe(false)
   })
 
+  it('stages and saves a per-model context window', async () => {
+    const host = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(host)
+    const models = modelsApi({
+      groups: [{
+        id: 'alpha',
+        name: 'Alpha API',
+        models: [{ id: 'fast', name: 'Fast' }, { id: 'deep', name: 'Deep' }],
+      }],
+    })
+    const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
+    host.publish({
+      status: 'ready', writable: true, revision: 8,
+      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+    })
+    const face = controller.inject()
+    const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(2) })
+
+    face.setModelContextWindow('missing', 64_000)
+    face.setModelContextWindow('alpha\0deep', 64_000)
+    face.setModelContextWindow('alpha\0fast', 0)
+    expect(state().dirty).toBe(false)
+
+    face.setModelContextWindow('alpha\0fast', 64_000)
+    expect(state().dirty).toBe(true)
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [{ provider: 'alpha', model: 'fast', contextWindow: 64_000 }],
+        },
+      ], 8)
+    })
+    face.setModelContextWindow('alpha\0fast', undefined)
+    expect(state().dirty).toBe(true)
+    face.save()
+    await vi.waitFor(() => { expect(state().dirty).toBe(false) })
+    expect(host.mutate).toHaveBeenLastCalledWith([
+      { op: 'set', path: ['enabled'], value: true },
+      { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
+    ], 8)
+  })
+
+  it('preserves an existing effort and context window across staged edits', async () => {
+    const host = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(host)
+    const models = modelsApi({
+      groups: [{
+        id: 'alpha',
+        name: 'Alpha API',
+        models: [{
+          id: 'fast',
+          name: 'Fast',
+          reasoning: { efforts: [{ id: 'high', name: 'High' }, { id: 'low', name: 'Low' }] },
+        }],
+      }],
+    })
+    const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
+    host.publish({
+      status: 'ready', writable: true, revision: 9,
+      value: {
+        enabled: true,
+        allowedModels: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'high', contextWindow: 64_000 }],
+      },
+      user: {},
+    })
+    const face = controller.inject()
+    const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(1) })
+
+    face.setModelContextWindow('alpha\0fast', 32_000)
+    face.setModelReasoningEffort('alpha\0fast', 'low')
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'low', contextWindow: 32_000 }],
+        },
+      ], 9)
+    })
+    await vi.waitFor(() => { expect(state().dirty).toBe(false) })
+
+    face.setModelContextWindow('alpha\0fast', undefined)
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenLastCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'low' }],
+        },
+      ], 9)
+    })
+  })
+
   it('starts an empty draft when a ready test scope has no decoded value', () => {
     const host = stubConfigForm<SubagentModelSelectionSettings>()
     const controller = new SubagentModelSelectionCardController(host.scope, modelsApi().ctx)
@@ -559,6 +662,7 @@ describe('SubagentModelSelectionCardController', () => {
     face.toggleEnabled()
     face.toggleModel('alpha\0fast')
     face.setModelReasoningEffort('alpha\0fast', 'high')
+    face.setModelContextWindow('alpha\0fast', 64_000)
     face.save()
     expect(host.mutate).not.toHaveBeenCalled()
 

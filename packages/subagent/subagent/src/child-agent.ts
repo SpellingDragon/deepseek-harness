@@ -105,16 +105,19 @@ export function resolveChildAgentOptions(
   const parentModel = parentOptions.model
   const parentReasoningEffort = parentOptions.reasoningEffort
   const parentMaxTokens = parentOptions.maxTokens
+  const parentContextWindow = parentOptions.contextWindow
   const resolved: AgentOptions = {
     ...parentProvider !== undefined ? { provider: parentProvider } : {},
     ...parentModel !== undefined ? { model: parentModel } : {},
     ...parentReasoningEffort !== undefined ? { reasoningEffort: parentReasoningEffort } : {},
     ...parentMaxTokens !== undefined ? { maxTokens: parentMaxTokens } : {},
+    ...parentContextWindow !== undefined ? { contextWindow: parentContextWindow } : {},
     ...requested,
     subagentDepth: childDepth,
   }
   const routeChanged = resolved.provider !== parentProvider || resolved.model !== parentModel
   if (routeChanged && requested?.reasoningEffort === undefined) delete resolved.reasoningEffort
+  if (routeChanged && requested?.contextWindow === undefined) delete resolved.contextWindow
   return resolved
 }
 

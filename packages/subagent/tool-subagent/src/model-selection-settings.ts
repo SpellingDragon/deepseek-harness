@@ -6,7 +6,7 @@ import z from '@deepseek-ai/schemastery'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 // Type-only: the Agent lifecycle payload and the Loader's volatile-update event.
-import type {} from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import {
   subagentModelSelectionPolicy,
@@ -62,6 +62,7 @@ export class SubagentModelSelectionConfig extends Service {
       const policy = await policyReady
       ctx.fiber.assertActive()
       this.reconcile(policy, agent.session, source === 'startup')
+      this.applyContextWindow(policy, agent)
     })
     const policy = await policyReady
     ctx.fiber.assertActive()
@@ -69,6 +70,12 @@ export class SubagentModelSelectionConfig extends Service {
       if (!paths.some(path => path[0] === 'enabled' || path[0] === 'allowedModels')) return
       this.reconcileLiveAgents(policy)
     })
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'model/selection') return
+      const agent = ctx.get('agents')?.get(session.id)
+      if (agent !== undefined) this.applyContextWindow(policy, agent)
+    })
+    for (const agent of ctx.get('agents')?.list() ?? []) this.applyContextWindow(policy, agent)
   }
 
   /**
@@ -102,7 +109,29 @@ export class SubagentModelSelectionConfig extends Service {
     if (agents === undefined) return
     for (const agent of agents.list()) {
       this.reconcile(policy, agent.session, false)
+      this.applyContextWindow(policy, agent)
     }
+  }
+
+  /**
+   * Apply the authorized route's context-window override to one child Agent.
+   * Top-level Agents keep their adapter metadata; child Agents update live
+   * before their next request or compaction pass. Without an authorized route,
+   * the current window is left unchanged.
+   */
+  private applyContextWindow(
+    policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>,
+    agent: Agent,
+  ): void {
+    if (agent.session.header.origin !== 'subagent') return
+    const selection = agent.model.current()
+    const provider = selection?.provider ?? agent.options.provider
+    const model = selection?.model ?? agent.options.model
+    if (provider === undefined || model === undefined) return
+    const route = subagentModelSelectionPolicy(policy, agent.session)
+      ?.find(route => route.provider === provider && route.model === model)
+    if (route === undefined) return
+    agent.contextWindow = route.contextWindow
   }
 
   /**

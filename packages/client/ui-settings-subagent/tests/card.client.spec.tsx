@@ -57,6 +57,7 @@ function renderSubagent(
     toggleEnabled: vi.fn(),
     toggleModel: vi.fn(),
     setModelReasoningEffort: vi.fn(),
+    setModelContextWindow: vi.fn(),
     retryCatalog: vi.fn(),
     save: vi.fn(),
     discard: vi.fn(),
@@ -149,6 +150,37 @@ describe('Subagent model selection fields', () => {
     expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', 'max')
     fireEvent.change(select, { target: { value: '' } })
     expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', undefined)
+  })
+
+  it('stages a selected model\'s context window', () => {
+    const actions = renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [{
+        key: 'alpha\0fast',
+        provider: 'alpha',
+        model: 'fast',
+        providerName: 'Alpha API',
+        modelName: 'Fast',
+        efforts: [],
+        contextWindow: 64_000,
+        available: true,
+        selected: true,
+      }],
+    })
+
+    const input = screen.getByRole('spinbutton', {
+      name: `Fast ${en.subagentModelSelectionContextWindow}`,
+    }) as HTMLInputElement
+    expect(input.value).toBe('64000')
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '32000' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 32_000)
+    fireEvent.change(input, { target: { value: '' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', undefined)
+    actions.setModelContextWindow.mockClear()
+    fireEvent.change(input, { target: { value: '0' } })
+    expect(actions.setModelContextWindow).not.toHaveBeenCalled()
   })
 
   it('shows the model default and retains a saved effort absent from the catalog', () => {

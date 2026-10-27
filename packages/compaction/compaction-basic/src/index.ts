@@ -327,16 +327,17 @@ export class BasicCompactionEngine extends CompactionEngine {
     const info = await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)
     assertNoActiveCompaction(agent.session, 'automatic pressure compaction')
     const targetKey = `${target.provider}/${target.model}`
-    if (info.context === undefined) {
+    const contextWindow = agent.contextWindow ?? info.context?.contextWindow
+    if (contextWindow === undefined) {
       throw new TargetPressureConfigError(
         targetKey,
         `compaction-basic: no context capacity for ${targetKey}; `
-        + 'configure contextWindow on that adapter model',
+        + 'configure contextWindow on that adapter model or Agent options',
       )
     }
     const spec = resolveCompactSpec(
       policy,
-      info.context.contextWindow,
+      contextWindow,
       reservedCompletionTokens(header, info.defaultMaxTokens),
     )
     if (measurement.totalTokens < spec.thresholdTokens) return null

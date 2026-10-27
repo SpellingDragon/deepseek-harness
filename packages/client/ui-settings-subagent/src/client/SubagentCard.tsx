@@ -44,7 +44,8 @@ export function SubagentCard(props: SubagentCardProps) {
             <h3 className={css.heading} id={`${headingId}-models`}>{t('subagentModelSelectionTitle')}</h3>
             <SubagentModelSelectionFields t={t} state={{ ...models, saving: state.saving }}
               toggleEnabled={props.toggleEnabled} toggleModel={props.toggleModel}
-              setModelReasoningEffort={props.setModelReasoningEffort} retryCatalog={props.retryCatalog} />
+              setModelReasoningEffort={props.setModelReasoningEffort}
+              setModelContextWindow={props.setModelContextWindow} retryCatalog={props.retryCatalog} />
           </section>
         )
         : null}

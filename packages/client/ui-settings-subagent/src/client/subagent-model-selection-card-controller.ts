@@ -14,6 +14,8 @@ export interface AllowedSubagentModel {
   model: string
   /** Adapter-owned effort used when a child selects this route without one. */
   reasoningEffort?: string
+  /** Context-window override for this child route; omission uses adapter metadata. */
+  contextWindow?: number
 }
 
 /** Settings fields stored for subagent model selection. */
@@ -66,6 +68,8 @@ export interface SubagentModelSelectionCardFace {
   toggleModel: (key: string) => void
   /** Stage one selected route's default reasoning effort. */
   setModelReasoningEffort: (key: string, effort: string | undefined) => void
+  /** Stage one selected route's context-window override; undefined uses adapter metadata. */
+  setModelContextWindow: (key: string, contextWindow: number | undefined) => void
   /** Retry the adapter directory. */
   retryCatalog: () => void
   /** Persist the switch and exact routes as one revision-fenced mutation. */
@@ -108,6 +112,7 @@ export function subagentModelCandidates(
       modelName: model.name,
       efforts: model.reasoning?.efforts ?? [],
       ...(storedRoute?.reasoningEffort === undefined ? {} : { reasoningEffort: storedRoute.reasoningEffort }),
+      ...(storedRoute?.contextWindow === undefined ? {} : { contextWindow: storedRoute.contextWindow }),
       available: true,
       selected: selected.has(key),
     }
@@ -129,8 +134,12 @@ export function subagentModelCandidates(
 
 function sameRoutes(left: readonly AllowedSubagentModel[], right: readonly AllowedSubagentModel[]): boolean {
   if (left.length !== right.length) return false
-  const rightByKey = new Map(right.map(route => [subagentModelKey(route), route.reasoningEffort ?? '']))
-  return left.every(route => rightByKey.get(subagentModelKey(route)) === (route.reasoningEffort ?? ''))
+  const rightByKey = new Map(right.map(route => [
+    subagentModelKey(route),
+    `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`,
+  ]))
+  return left.every(route => rightByKey.get(subagentModelKey(route))
+    === `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`)
 }
 
 /** Bridges one configuration form and the live adapter directory onto a staged card. */
@@ -191,6 +200,7 @@ export class SubagentModelSelectionCardController {
       toggleEnabled: () => { this.toggleEnabled() },
       toggleModel: (key) => { this.toggleModel(key) },
       setModelReasoningEffort: (key, effort) => { this.setModelReasoningEffort(key, effort) },
+      setModelContextWindow: (key, contextWindow) => { this.setModelContextWindow(key, contextWindow) },
       retryCatalog: () => { void this.loadCatalog() },
       save: () => { void this.save() },
       discard: () => { this.discard() },
@@ -256,6 +266,24 @@ export class SubagentModelSelectionCardController {
       provider: candidate.provider,
       model: candidate.model,
       ...(effort === undefined ? {} : { reasoningEffort: effort }),
+      ...(candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow }),
+    })
+    this.failed = false
+    this.publish()
+  }
+
+  private setModelContextWindow(key: string, contextWindow: number | undefined): void {
+    if (!this.enabled() || this.saving || !this.scope.getSnapshot().writable) return
+    if (contextWindow !== undefined
+      && (!Number.isSafeInteger(contextWindow) || contextWindow <= 0)) return
+    const candidate = this.candidates().find(candidate => candidate.key === key)
+    if (candidate === undefined || !candidate.selected) return
+    const routes = this.beginDraft()
+    routes.set(key, {
+      provider: candidate.provider,
+      model: candidate.model,
+      ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: candidate.reasoningEffort }),
+      ...(contextWindow === undefined ? {} : { contextWindow }),
     })
     this.failed = false
     this.publish()
@@ -311,6 +339,7 @@ export class SubagentModelSelectionCardController {
           provider: route.provider,
           model: route.model,
           ...(route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort }),
+          ...(route.contextWindow === undefined ? {} : { contextWindow: route.contextWindow }),
         })),
       },
     ], this.draftRevision)

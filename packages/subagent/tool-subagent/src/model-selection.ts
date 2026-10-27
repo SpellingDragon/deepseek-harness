@@ -13,6 +13,8 @@ export interface AllowedModelRoute {
   readonly model: string
   /** Adapter-owned effort used when a child selects this route without one. */
   readonly reasoningEffort?: string
+  /** Context-window override for this child route; omission uses adapter metadata. */
+  readonly contextWindow?: number
 }
 
 /** Schema shared by the Host setting and its deployment base. */
@@ -20,6 +22,7 @@ export const AllowedModelRouteSchema: z<AllowedModelRoute> = z.object({
   provider: z.string().min(1).required(),
   model: z.string().min(1).required(),
   reasoningEffort: z.string().min(1),
+  contextWindow: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
 })
 
 /** Exact routes authorized for one Session. */
@@ -63,7 +66,7 @@ export function sameAllowedModelRoutes(
  * @returns Opaque key for policy equality checks.
  */
 function modelRoutePolicyKey(route: AllowedModelRoute): string {
-  return `${modelRouteKey(route)}\0${route.reasoningEffort ?? ''}`
+  return `${modelRouteKey(route)}\0${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`
 }
 
 /**
@@ -104,10 +107,16 @@ export function assertAllowedModelRoutes(routes: unknown): asserts routes is rea
       && (typeof reasoningEffort !== 'string' || reasoningEffort.length === 0)) {
       throw new Error('subagent model selection requires a non-empty reasoning effort when provided')
     }
+    const contextWindow = 'contextWindow' in candidate ? candidate.contextWindow : undefined
+    if (contextWindow !== undefined
+      && (typeof contextWindow !== 'number' || !Number.isSafeInteger(contextWindow) || contextWindow <= 0)) {
+      throw new Error('subagent model selection requires a positive safe-integer context window when provided')
+    }
     const route = {
       provider: candidate.provider,
       model: candidate.model,
       ...reasoningEffort === undefined ? {} : { reasoningEffort },
+      ...contextWindow === undefined ? {} : { contextWindow },
     }
     const key = modelRouteKey(route)
     if (seen.has(key)) {
@@ -184,25 +193,32 @@ export function requestedAgentOptions(
 }
 
 /**
- * Apply an authorized route's configured default reasoning effort when the
- * caller supplied neither a route effort nor a configured effort.
+ * Apply an authorized route's configured default reasoning effort and context
+ * window when the caller supplied neither value.
  * @param routes - Authorized exact routes, or undefined without a policy.
  * @param parentOptions - Current parent values that supply missing child values.
  * @param requested - Effective child options after request/config merging.
- * @returns Child options with the matching route's default effort, when present.
+ * @returns Child options with the matching route's defaults, when present.
  */
-export function applyAllowedRouteDefaultEffort(
+export function applyAllowedRouteDefaults(
   routes: readonly AllowedModelRoute[] | undefined,
   parentOptions: AgentOptions,
   requested: AgentOptions | undefined,
 ): AgentOptions | undefined {
-  if (routes === undefined || requested?.reasoningEffort !== undefined) return requested
+  if (routes === undefined) return requested
   const provider = requested?.provider ?? parentOptions.provider
   const model = requested?.model ?? parentOptions.model
   if (provider === undefined || model === undefined) return requested
   const route = allowedRouteFor(routes, provider, model)
-  if (route?.reasoningEffort === undefined) return requested
-  return { ...requested, reasoningEffort: ReasoningEffortId(route.reasoningEffort) }
+  if (route === undefined) return requested
+  const reasoningEffort = requested?.reasoningEffort === undefined ? route.reasoningEffort : undefined
+  const contextWindow = requested?.contextWindow === undefined ? route.contextWindow : undefined
+  if (reasoningEffort === undefined && contextWindow === undefined) return requested
+  return {
+    ...requested,
+    ...reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(reasoningEffort) },
+    ...contextWindow === undefined ? {} : { contextWindow },
+  }
 }
 
 /**

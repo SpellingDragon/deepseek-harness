@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { assembleContextFor } from '@deepseek-ai/dsh-agent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { bindScopeParent, createScope, scopeOf, scopeTarget } from '@deepseek-ai/dsh-scope'
@@ -66,6 +66,7 @@ async function boot(withPreset = true): Promise<Context> {
 async function createAgent(ctx: Context, id: string, options: {
   meta?: { parentSession: SessionId; origin: 'subagent' }
   seed?: readonly SessionEvent[]
+  agentOptions?: { provider?: string; model?: string }
 } = {}) {
   const preset = modelSelectionPresets.get(ctx)
   if (preset === undefined) throw new Error('context has no model-selection preset')
@@ -534,7 +535,9 @@ describe('SubagentModelSelectionConfig', () => {
     const policy = await ctx.sessionProjections.register(subagentModelSelectionProjectionDefinition)
     expect(subagentModelSelectionPolicy(policy, agent.session)).toEqual(ALLOWED_MODELS)
 
-    const withEffort = ALLOWED_MODELS.map(route => ({ ...route, reasoningEffort: 'max' }))
+    const withEffort = ALLOWED_MODELS.map(route => ({
+      ...route, reasoningEffort: 'max', contextWindow: 64_000,
+    }))
     await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: withEffort })
     expect(subagentModelSelectionPolicy(policy, agent.session)).toEqual(withEffort)
     expect(agent.session.snapshotEvents()
@@ -604,6 +607,71 @@ describe('SubagentModelSelectionConfig', () => {
     })
     expect(nowAuthorized.isError).toBe(true)
     expect(text(nowAuthorized)).not.toContain('is not allowed for this Session')
+    await ctx.fiber.dispose()
+  })
+
+  it('applies context windows to child Agents live without touching top-level Agents', async () => {
+    const ctx = await boot()
+    const route = { provider: 'alpha', model: 'fast-model', contextWindow: 64_000 }
+    const otherRoute = { provider: 'beta', model: 'slow-model', contextWindow: 16_000 }
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [route, otherRoute] })
+    const parent = await createAgent(ctx, 'context-parent', {
+      agentOptions: { provider: 'alpha', model: 'fast-model' },
+    })
+    const child = await createAgent(ctx, 'context-child', {
+      meta: { parentSession: parent.id, origin: 'subagent' },
+      agentOptions: { provider: 'alpha', model: 'fast-model' },
+    })
+
+    expect(parent.contextWindow).toBeUndefined()
+    expect(child.contextWindow).toBe(64_000)
+    await selectionConfigs.get(ctx)!.update({
+      enabled: true,
+      allowedModels: [{ ...route, contextWindow: 32_000 }, otherRoute],
+    })
+    expect(child.contextWindow).toBe(32_000)
+    child.model.select({ provider: 'beta', model: 'slow-model' })
+    expect(child.contextWindow).toBe(16_000)
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [route] })
+    expect(child.contextWindow).toBe(16_000)
+    await selectionConfigs.get(ctx)!.update({ enabled: false })
+    expect(child.contextWindow).toBe(16_000)
+    const unconfigured = await createAgent(ctx, 'context-unconfigured', {
+      meta: { parentSession: parent.id, origin: 'subagent' },
+    })
+    expect(unconfigured.contextWindow).toBeUndefined()
+    await ctx.fiber.dispose()
+  })
+
+  it('applies a recorded route context window to a restored child Agent', async () => {
+    const ctx = await boot()
+    const route = { provider: 'alpha', model: 'fast-model', contextWindow: 48_000 }
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [route] })
+    const seed = Session.create(SessionId('context-window-seed'))
+    seed.append('subagent/model-selection-policy', { allowedModels: [route] })
+    const parent = await createAgent(ctx, 'context-restore-parent')
+    const restored = await createAgent(ctx, 'context-restored', {
+      meta: { parentSession: parent.id, origin: 'subagent' },
+      seed: seed.snapshotEvents(),
+      agentOptions: { provider: 'alpha', model: 'fast-model' },
+    })
+    expect(restored.contextWindow).toBe(48_000)
+    await ctx.fiber.dispose()
+  })
+
+  it('ignores model selections from Sessions without a live Agent', async () => {
+    const ctx = await boot()
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: ALLOWED_MODELS })
+    ctx.emit(
+      'session/event',
+      Session.create(SessionId('detached-selection')),
+      {
+        type: 'model/selection',
+        seq: SessionSeq(0),
+        time: 0,
+        data: { provider: 'alpha', model: 'fast-model' },
+      } satisfies SessionEvent<'model/selection'>,
+    )
     await ctx.fiber.dispose()
   })
 

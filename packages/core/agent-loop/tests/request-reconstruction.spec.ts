@@ -932,6 +932,31 @@ describe('request/context capacity records', () => {
     expect(agent.session.surface.nodes).not.toContain(records[0]?.seq)
   })
 
+  it('applies a live context-window override without recreating the Agent', async () => {
+    const adapter = capacityAdapter(
+      { mock: 128_000 },
+      [textResponse('a'), textResponse('b'), textResponse('c')],
+    )
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('capacity-override'), {
+      provider: 'mock', model: 'mock', contextWindow: 64_000,
+    })
+
+    send(agent, 'first')
+    await waitForIdle(ctx, agent)
+    expect(() => { agent.contextWindow = 0 }).toThrow('agent contextWindow must be a positive safe integer')
+    agent.contextWindow = 32_000
+    send(agent, 'second')
+    await waitForIdle(ctx, agent)
+    agent.contextWindow = undefined
+    send(agent, 'third')
+    await waitForIdle(ctx, agent)
+
+    expect(agent.session.snapshotEvents()
+      .filter(event => event.type === 'request/context')
+      .map(event => event.data.contextWindow)).toEqual([64_000, 32_000, 128_000])
+  })
+
   it('records a second capacity when the route changes mid-session', async () => {
     const adapter = capacityAdapter(
       { small: 64_000, large: 256_000 },

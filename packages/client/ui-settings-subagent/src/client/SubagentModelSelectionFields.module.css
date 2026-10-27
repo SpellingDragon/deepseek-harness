@@ -153,3 +153,27 @@
   cursor: default;
   opacity: 0.6;
 }
+
+.modelControls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contextWindow {
+  width: 128px;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+}
+
+.contextWindow:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

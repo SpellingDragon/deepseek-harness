@@ -116,6 +116,8 @@ export class ReactLoopAgent implements Agent {
 
   /** Whether this loop instance has appended its initial/resume request anchor. */
   private requestHeaderLogged = false
+  /** Live context-window override; undefined follows adapter metadata. */
+  private contextWindowOverride: number | undefined
   /** Surface generation at attachment or the preceding built request. */
   private requestSurfaceGeneration: number
   private readonly runtimeContext: RuntimeContextProjection
@@ -136,6 +138,7 @@ export class ReactLoopAgent implements Agent {
     lastTurn: number,
   ) {
     this.requestSurfaceGeneration = session.surface.contentGeneration
+    this.contextWindowOverride = options.contextWindow
     this.dispatch = agentEvents(loopCtx, this)
     this.scope = createScope(loopCtx, this)
     this.ctx = this.scope.ctx
@@ -148,6 +151,18 @@ export class ReactLoopAgent implements Agent {
 
   get status(): AgentStatus {
     return this.phase.kind === 'idle' || this.phase.kind === 'maintenance' ? 'idle' : 'running'
+  }
+
+  get contextWindow(): number | undefined {
+    return this.contextWindowOverride
+  }
+
+  set contextWindow(contextWindow: number | undefined) {
+    if (contextWindow !== undefined
+      && (!Number.isSafeInteger(contextWindow) || contextWindow <= 0)) {
+      throw new TypeError('agent contextWindow must be a positive safe integer')
+    }
+    this.contextWindowOverride = contextWindow
   }
 
   /** Commit a phase and publish its externally visible status transition. */
@@ -699,7 +714,7 @@ export class ReactLoopAgent implements Agent {
     }
     this.requestSurfaceGeneration = surfaceGeneration
 
-    const contextWindow = preparedCall?.context?.contextWindow
+    const contextWindow = this.contextWindow ?? preparedCall?.context?.contextWindow
     const systemPromptUpdate = preparedCall?.systemPromptUpdate
     const requestContext: RequestContext = {
       provider: config.provider,
