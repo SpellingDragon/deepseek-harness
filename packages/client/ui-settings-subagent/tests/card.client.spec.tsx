@@ -250,7 +250,8 @@ describe('Subagent model selection fields', () => {
         candidates: [contextWindowCandidate(512 * 1024)],
       })
     })
-    expect(screen.getByRole('combobox', { name: label }).value).toBe('512k')
+    const resetSelect = screen.getByRole('combobox', { name: label }) as HTMLSelectElement
+    expect(resetSelect.value).toBe('512k')
     expect(screen.queryByRole('spinbutton', {
       name: `${label} (${en.subagentModelSelectionContextWindowUnitM})`,
     })).toBeNull()
