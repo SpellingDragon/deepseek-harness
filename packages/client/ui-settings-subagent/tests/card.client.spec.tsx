@@ -49,6 +49,7 @@ function renderSubagent(
     catalogStatus: 'idle',
     catalogPartial: false,
     conflicted: false,
+    resetToken: 0,
     ...modelState,
   })
   const actions = {
@@ -224,6 +225,35 @@ describe('Subagent model selection fields', () => {
     expect(screen.queryByRole('status')).toBeNull()
     fireEvent.change(input, { target: { value: '' } })
     expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', undefined)
+  })
+
+  it('resets local context-window editing when the snapshot generation changes', () => {
+    const { models } = renderSubagent({ available: false }, {
+      enabled: true,
+      catalogStatus: 'ready',
+      resetToken: 0,
+      candidates: [contextWindowCandidate(256 * 1024)],
+    })
+    const label = `Fast ${en.subagentModelSelectionContextWindow}`
+    const select = screen.getByRole('combobox', { name: label }) as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'custom' } })
+    const input = screen.getByRole('spinbutton', {
+      name: `${label} (${en.subagentModelSelectionContextWindowUnitM})`,
+    }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '0.75' } })
+    expect(input.value).toBe('0.75')
+
+    act(() => {
+      models.set({
+        ...models.getSnapshot(),
+        resetToken: 1,
+        candidates: [contextWindowCandidate(512 * 1024)],
+      })
+    })
+    expect(screen.getByRole('combobox', { name: label }).value).toBe('512k')
+    expect(screen.queryByRole('spinbutton', {
+      name: `${label} (${en.subagentModelSelectionContextWindowUnitM})`,
+    })).toBeNull()
   })
 
   it('shows a stored non-preset context window as custom millions', () => {

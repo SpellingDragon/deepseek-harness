@@ -54,6 +54,8 @@ export interface SubagentModelSelectionCardState extends SettingsFormShell {
   catalogPartial: boolean
   /** Whether a newer Host revision invalidated the current draft. */
   conflicted: boolean
+  /** Generation that resets component-local editor state after a draft or Host replacement. */
+  resetToken: number
 }
 
 /** Registration-side face for the subagent model-selection card. */
@@ -156,6 +158,8 @@ export class SubagentModelSelectionCardController {
   private disposed = false
   private saveGeneration = 0
   private catalogGeneration = 0
+  private resetToken = 0
+  private lastRevision: number | undefined
   private readonly store: SnapshotStore<SubagentModelSelectionCardState>
   private readonly unsubscribe: () => void
 
@@ -168,8 +172,14 @@ export class SubagentModelSelectionCardController {
     private readonly scope: SettingsFormScope<SubagentModelSelectionSettings>,
     private readonly ctx: ClientContext,
   ) {
+    this.lastRevision = scope.getSnapshot().revision
     this.store = createSnapshotStore(this.projection())
     this.unsubscribe = scope.subscribe(() => {
+      const revision = this.scope.getSnapshot().revision
+      if (revision !== this.lastRevision) {
+        this.lastRevision = revision
+        this.resetToken += 1
+      }
       if (!this.saving && this.draftRoutes !== undefined
         && this.scope.getSnapshot().revision !== this.draftRevision) {
         if (this.currentEnabled() === this.enabled()
@@ -295,6 +305,7 @@ export class SubagentModelSelectionCardController {
     this.draftRevision = undefined
     this.failed = false
     this.conflicted = false
+    this.resetToken += 1
   }
 
   private discard(): void {
@@ -406,6 +417,7 @@ export class SubagentModelSelectionCardController {
       catalogStatus: this.catalogStatus,
       catalogPartial: this.catalogPartial,
       conflicted: this.conflicted,
+      resetToken: this.resetToken,
     }
   }
 
