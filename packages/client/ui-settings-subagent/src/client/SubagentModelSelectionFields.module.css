@@ -172,11 +172,36 @@
   min-width: 0;
 }
 
+.contextWindowRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .contextWindow {
   width: 128px;
 }
 
+.contextWindowCustom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contextWindowCustomInput {
+  width: 72px;
+}
+
+.contextWindowUnit {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .contextWindowGroup .invalid {
-  max-width: 160px;
+  max-width: 200px;
   text-align: right;
 }

@@ -152,41 +152,96 @@ describe('Subagent model selection fields', () => {
     expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', undefined)
   })
 
-  it('stages a selected model\'s context window', () => {
+  function contextWindowCandidate(contextWindow?: number) {
+    return {
+      key: 'alpha\0fast',
+      provider: 'alpha',
+      model: 'fast',
+      providerName: 'Alpha API',
+      modelName: 'Fast',
+      efforts: [],
+      ...contextWindow === undefined ? {} : { contextWindow },
+      available: true,
+      selected: true,
+    }
+  }
+
+  it('selects a context-window preset or default', () => {
     const actions = renderSubagentModelSelection({
       enabled: true,
       catalogStatus: 'ready',
-      candidates: [{
-        key: 'alpha\0fast',
-        provider: 'alpha',
-        model: 'fast',
-        providerName: 'Alpha API',
-        modelName: 'Fast',
-        efforts: [],
-        contextWindow: 64_000,
-        available: true,
-        selected: true,
-      }],
+      candidates: [contextWindowCandidate(256 * 1024)],
     })
-
-    const input = screen.getByRole('spinbutton', {
+    const select = screen.getByRole('combobox', {
       name: `Fast ${en.subagentModelSelectionContextWindow}`,
-    }) as HTMLInputElement
-    expect(input.value).toBe('64000')
-    fireEvent.click(input)
-    fireEvent.change(input, { target: { value: '32000' } })
-    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 32_000)
-    fireEvent.change(input, { target: { value: '' } })
-    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', undefined)
+    }) as HTMLSelectElement
+    expect(select.value).toBe('256k')
+    fireEvent.click(select)
+    fireEvent.change(select, { target: { value: '512k' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 512 * 1024)
+    fireEvent.change(select, { target: { value: '1m' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 1024 * 1024)
     actions.setModelContextWindow.mockClear()
-    fireEvent.change(input, { target: { value: '1.5' } })
+    fireEvent.change(select, { target: { value: 'bogus' } })
+    expect(actions.setModelContextWindow).not.toHaveBeenCalled()
+    fireEvent.change(select, { target: { value: 'default' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', undefined)
+    fireEvent.change(select, { target: { value: 'custom' } })
+    const custom = screen.getByRole('spinbutton', {
+      name: `Fast ${en.subagentModelSelectionContextWindow} (${en.subagentModelSelectionContextWindowUnitM})`,
+    }) as HTMLInputElement
+    expect(custom.value).toBe('0.25')
+  })
+
+  it('stages a custom context window in millions and reports invalid values', () => {
+    const actions = renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [contextWindowCandidate()],
+    })
+    const select = screen.getByRole('combobox', {
+      name: `Fast ${en.subagentModelSelectionContextWindow}`,
+    }) as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'custom' } })
+    const input = screen.getByRole('spinbutton', {
+      name: `Fast ${en.subagentModelSelectionContextWindow} (${en.subagentModelSelectionContextWindowUnitM})`,
+    }) as HTMLInputElement
+    expect(input.value).toBe('')
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '0.5' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 512 * 1024)
+    actions.setModelContextWindow.mockClear()
+    fireEvent.change(input, { target: { value: '0' } })
     expect(actions.setModelContextWindow).not.toHaveBeenCalled()
     expect(input.getAttribute('aria-invalid')).toBe('true')
     expect(screen.getByRole('status').textContent).toBe(en.subagentModelSelectionContextWindowInvalid)
-    fireEvent.change(input, { target: { value: '48000' } })
-    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 48_000)
+    fireEvent.change(input, { target: { value: '9007199254740' } })
+    expect(actions.setModelContextWindow).not.toHaveBeenCalled()
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    fireEvent.change(input, { target: { value: '0.75' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 768 * 1024)
     expect(input.getAttribute('aria-invalid')).toBeNull()
     expect(screen.queryByRole('status')).toBeNull()
+    fireEvent.change(input, { target: { value: '' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', undefined)
+  })
+
+  it('shows a stored non-preset context window as custom millions', () => {
+    const actions = renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [contextWindowCandidate(64_000)],
+    })
+    const select = screen.getByRole('combobox', {
+      name: `Fast ${en.subagentModelSelectionContextWindow}`,
+    }) as HTMLSelectElement
+    expect(select.value).toBe('custom')
+    const input = screen.getByRole('spinbutton', {
+      name: `Fast ${en.subagentModelSelectionContextWindow} (${en.subagentModelSelectionContextWindowUnitM})`,
+    }) as HTMLInputElement
+    expect(input.value).toBe('0.061035')
+    fireEvent.change(input, { target: { value: '0.25' } })
+    expect(actions.setModelContextWindow).toHaveBeenCalledWith('alpha\0fast', 256 * 1024)
   })
 
   it('shows the model default and retains a saved effort absent from the catalog', () => {

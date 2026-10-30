@@ -16,47 +16,123 @@ export type SubagentModelSelectionFieldsProps = PropsLocale<'settings.subagent'>
     'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'setModelContextWindow' | 'retryCatalog'>
   & { state: SubagentModelSelectionCardState }
 
-/** One model's numeric context-window override with local invalid feedback. */
-function ContextWindowInput(props: {
+const CONTEXT_WINDOW_UNIT = 1_048_576
+const CONTEXT_WINDOW_PRESETS = {
+  '256k': 256 * 1024,
+  '512k': 512 * 1024,
+  '1m': 1024 * 1024,
+} as const
+type ContextWindowPreset = keyof typeof CONTEXT_WINDOW_PRESETS
+type ContextWindowMode = 'default' | 'custom' | ContextWindowPreset
+
+const CONTEXT_WINDOW_MODE_BY_TOKENS = new Map<number, ContextWindowPreset>(
+  Object.entries(CONTEXT_WINDOW_PRESETS).map(([mode, tokens]) => [tokens, mode as ContextWindowPreset]),
+)
+
+function contextWindowMode(value: number | undefined): ContextWindowMode {
+  if (value === undefined) return 'default'
+  return CONTEXT_WINDOW_MODE_BY_TOKENS.get(value) ?? 'custom'
+}
+
+function formatMillions(value: number): string {
+  return String(Number((value / CONTEXT_WINDOW_UNIT).toFixed(6)))
+}
+
+/** One model's context-window preset or custom millions input with local invalid feedback. */
+function ContextWindowControl(props: {
   candidate: SubagentModelCandidate
   disabled: boolean
   label: string
-  placeholder: string
-  invalidLabel: string
+  t: SubagentModelSelectionFieldsProps['t']
   onChange: (contextWindow: number | undefined) => void
 }) {
+  const initialMode = contextWindowMode(props.candidate.contextWindow)
+  const [mode, setMode] = useState<ContextWindowMode>(initialMode)
+  const [customText, setCustomText] = useState(
+    initialMode === 'custom' && props.candidate.contextWindow !== undefined
+      ? formatMillions(props.candidate.contextWindow)
+      : '',
+  )
   const [invalid, setInvalid] = useState(false)
+  const selectMode = (value: string) => {
+    if (value === 'default') {
+      setMode('default')
+      setCustomText('')
+      setInvalid(false)
+      props.onChange(undefined)
+      return
+    }
+    if (value === 'custom') {
+      setMode('custom')
+      setCustomText(
+        props.candidate.contextWindow === undefined ? '' : formatMillions(props.candidate.contextWindow),
+      )
+      setInvalid(false)
+      return
+    }
+    if (!Object.hasOwn(CONTEXT_WINDOW_PRESETS, value)) return
+    const preset = value as ContextWindowPreset
+    setMode(preset)
+    setCustomText('')
+    setInvalid(false)
+    props.onChange(CONTEXT_WINDOW_PRESETS[preset])
+  }
+  const editCustom = (raw: string) => {
+    setCustomText(raw)
+    if (raw === '') {
+      setMode('default')
+      setInvalid(false)
+      props.onChange(undefined)
+      return
+    }
+    const contextWindow = Math.round(Number(raw) * CONTEXT_WINDOW_UNIT)
+    if (Number.isSafeInteger(contextWindow) && contextWindow > 0) {
+      setInvalid(false)
+      props.onChange(contextWindow)
+      return
+    }
+    setInvalid(true)
+  }
   return (
     <span className={css.contextWindowGroup}>
-      <input
-        className={`${css.control} ${css.contextWindow}`}
-        type="number"
-        min={1}
-        step={1}
-        inputMode="numeric"
-        aria-label={props.label}
-        aria-invalid={invalid || undefined}
-        placeholder={props.placeholder}
-        value={props.candidate.contextWindow ?? ''}
-        disabled={props.disabled}
-        onClick={(event) => { event.stopPropagation() }}
-        onChange={(event) => {
-          const raw = event.target.value
-          if (raw === '') {
-            setInvalid(false)
-            props.onChange(undefined)
-            return
-          }
-          const contextWindow = Number(raw)
-          if (Number.isSafeInteger(contextWindow) && contextWindow > 0) {
-            setInvalid(false)
-            props.onChange(contextWindow)
-            return
-          }
-          setInvalid(true)
-        }}
-      />
-      {invalid ? <span className={css.invalid} role="status">{props.invalidLabel}</span> : null}
+      <span className={css.contextWindowRow}>
+        <select
+          className={`${css.control} ${css.contextWindow}`}
+          aria-label={props.label}
+          value={mode}
+          disabled={props.disabled}
+          onClick={(event) => { event.stopPropagation() }}
+          onChange={(event) => { selectMode(event.target.value) }}
+        >
+          <option value="default">{props.t('subagentModelSelectionContextWindowDefault')}</option>
+          <option value="256k">{props.t('subagentModelSelectionContextWindow256k')}</option>
+          <option value="512k">{props.t('subagentModelSelectionContextWindow512k')}</option>
+          <option value="1m">{props.t('subagentModelSelectionContextWindow1m')}</option>
+          <option value="custom">{props.t('subagentModelSelectionContextWindowCustom')}</option>
+        </select>
+        {mode === 'custom'
+          ? (
+            <span className={css.contextWindowCustom}>
+              <input
+                className={`${css.control} ${css.contextWindowCustomInput}`}
+                type="number"
+                min={0.001}
+                step={0.001}
+                inputMode="decimal"
+                aria-label={`${props.label} (${props.t('subagentModelSelectionContextWindowUnitM')})`}
+                aria-invalid={invalid || undefined}
+                placeholder={props.t('subagentModelSelectionContextWindowCustomPlaceholder')}
+                value={customText}
+                disabled={props.disabled}
+                onClick={(event) => { event.stopPropagation() }}
+                onChange={(event) => { editCustom(event.target.value) }}
+              />
+              <span className={css.contextWindowUnit}>{props.t('subagentModelSelectionContextWindowUnitM')}</span>
+            </span>
+          )
+          : null}
+      </span>
+      {invalid ? <span className={css.invalid} role="status">{props.t('subagentModelSelectionContextWindowInvalid')}</span> : null}
     </span>
   )
 }
@@ -126,13 +202,12 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
                 </select>
               )
               : null}
-            <ContextWindowInput
+            <ContextWindowControl
               key={candidate.key}
               candidate={candidate}
               disabled={!state.writable || state.saving}
               label={`${candidate.modelName} ${t('subagentModelSelectionContextWindow')}`}
-              placeholder={t('subagentModelSelectionContextWindowPlaceholder')}
-              invalidLabel={t('subagentModelSelectionContextWindowInvalid')}
+              t={t}
               onChange={(contextWindow) => { props.setModelContextWindow(candidate.key, contextWindow) }}
             />
           </span>
