@@ -1,0 +1,28 @@
+# Bilingual-pair consistency record for 2026-10-24-live-subagent-model-authorization.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/persistence-changes/2026-10-24-live-subagent-model-authorization.md
+/:
+  en: 3d5a424ae7d7e46b
+  zh: c22a8e4a62d8cc1a
+/2026-10-24-live-subagent-model-authorization:
+  en: 96b0133a6fafd5b0
+  zh: bec8e34090635a9c
+/2026-10-24-live-subagent-model-authorization/summary:
+  en: a5acadd77734707b
+  zh: 57706682f4f1ddfa
+/2026-10-24-live-subagent-model-authorization/table-of-contents:
+  en: 6cf314a069ceb451
+  zh: 9adff678e9ecab3b
+/2026-10-24-live-subagent-model-authorization/declaration:
+  en: 6907136f28e48c90
+  zh: 02f8298485f3d8e7
+/2026-10-24-live-subagent-model-authorization/compatibility:
+  en: ea5ee8c7df840bd4
+  zh: 5d4aa6c99ea68220
+/2026-10-24-live-subagent-model-authorization/verification:
+  en: 5b31a2cc90bf561e
+  zh: 3bc73881920478fc
+/2026-10-24-live-subagent-model-authorization/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

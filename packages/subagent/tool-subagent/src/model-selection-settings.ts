@@ -1,10 +1,14 @@
 /** Host-owned opt-in setting for model-selectable subagent delegation. */
 import type { Volatile } from '@deepseek-ai/cordis'
 
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context, FiberState, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { SessionSeq } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-agent'
+import type { Session } from '@deepseek-ai/dsh-session'
+import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
+import { agentContextWindowProjectionDefinition } from '@deepseek-ai/dsh-agent'
+// Type-only: the Agent lifecycle payload and the Loader's volatile-update event.
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/cordis-plugin-loader'
 import {
   subagentModelSelectionPolicy,
   subagentModelSelectionProjectionDefinition,
@@ -12,21 +16,22 @@ import {
 import {
   AllowedModelRouteSchema,
   assertAllowedModelRoutes,
+  sameAllowedModelRoutes,
   type AllowedModelRoute,
 } from './model-selection.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    /** User preference sampled during Agent creation. */
+    /** User preference applied to new and live Agents. */
     subagentModelSelection: SubagentModelSelectionConfig
   }
 }
 
 /** Stored user preference; the shipped composition defaults it off. */
 export interface SubagentModelSelectionSettings {
-  /** Whether new top-level Sessions receive model selection. */
+  /** Whether Sessions receive model selection. */
   enabled: boolean
-  /** Exact child LLM routes offered to new top-level Sessions. */
+  /** Exact child LLM routes offered to Sessions, with optional default efforts. */
   allowedModels: AllowedModelRoute[]
 }
 
@@ -34,13 +39,13 @@ export interface SubagentModelSelectionSettings {
 export interface Config {
   /** Initial enabled state inherited when the user document does not override it. */
   enabled: Volatile<boolean>
-  /** Initial route list inherited when the user document does not override it. */
+  /** Initial route list with optional default efforts inherited when the user document does not override it. */
   allowedModels: Volatile<AllowedModelRoute[]>
 }
 
-/** Host settings owner that records Session authorization before the first model request. */
+/** Host settings owner that keeps each Session's recorded authorization aligned with the current preference. */
 export class SubagentModelSelectionConfig extends Service {
-  static inject = ['sessionProjections', 'sessions']
+  static inject = ['sessionProjections']
 
   static Config = z.object({
     enabled: z.boolean().default(false).volatile(),
@@ -54,29 +59,104 @@ export class SubagentModelSelectionConfig extends Service {
   protected async [Service.init](): Promise<void> {
     const ctx = this.ctx
     const policyReady = ctx.sessionProjections.register(subagentModelSelectionProjectionDefinition)
-    ctx.on('agent/created', async ({ agent }) => {
+    const contextWindowReady = ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
+    ctx.on('agent/created', async ({ agent, source }) => {
       const policy = await policyReady
+      const contextWindow = await contextWindowReady
       ctx.fiber.assertActive()
-      const target = agent.session
-      if (subagentModelSelectionPolicy(policy, target) !== undefined) return
-      let allowedModels: AllowedModelRoute[] | undefined
-      const parentId = target.header.origin === 'subagent' ? target.header.parentSession : undefined
-      if (parentId !== undefined) {
-        const parent = ctx.sessions.get(parentId)
-        if (parent !== undefined) allowedModels = subagentModelSelectionPolicy(policy, parent)
-      } else if (target.firstLiveSeq === 0
-        // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-        && target.eventAt(SessionSeq(0))?.type !== 'session/end-seed') {
-        const current = this.current()
-        allowedModels = current.enabled ? current.allowedModels : undefined
-      }
-      if (allowedModels !== undefined) target.append('subagent/model-selection-policy', { allowedModels })
+      this.reconcile(policy, agent.session, source === 'startup')
+      this.applyContextWindow(policy, contextWindow, agent)
     })
-    await policyReady
+    const policy = await policyReady
+    const contextWindow = await contextWindowReady
+    ctx.fiber.assertActive()
+    ctx.on('loader/volatile-update', (paths) => {
+      if (!paths.some(path => path[0] === 'enabled' || path[0] === 'allowedModels')) return
+      this.reconcileLiveAgents(policy, contextWindow)
+    })
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'model/selection') return
+      if (ctx.get('agents')?.get(session.id) === undefined) return
+      queueMicrotask(() => {
+        /* v8 ignore next -- owner disposal may beat the deferred update */
+        if (ctx.fiber.state !== FiberState.ACTIVE) return
+        const agent = ctx.get('agents')?.get(session.id)
+        /* v8 ignore next -- the Agent may leave before the deferred update */
+        if (agent === undefined) return
+        this.applyContextWindow(policy, contextWindow, agent)
+      })
+    })
+    ctx.on('agent/pre-step', ({ agent }, next) => {
+      this.applyContextWindow(policy, contextWindow, agent)
+      return next()
+    }, { prepend: true })
+    for (const agent of ctx.get('agents')?.list() ?? []) this.applyContextWindow(policy, contextWindow, agent)
   }
 
   /**
-   * Read a detached selection preference for the next fresh top-level Session.
+   * Align one live Session with the current preference, recording an event only when authorization differs.
+   * @param policy - registered projection reader.
+   * @param session - Session whose durable policy is read and updated.
+   * @param initial - whether this is a fresh startup Session that may receive the initial policy event.
+   */
+  private reconcile(
+    policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>,
+    session: Session,
+    initial: boolean,
+  ): void {
+    const preference = this.current()
+    const recorded = subagentModelSelectionPolicy(policy, session)
+    const desired = preference.enabled ? preference.allowedModels : undefined
+    if (sameAllowedModelRoutes(recorded, desired)) return
+    if (initial && preference.enabled && recorded === undefined) {
+      session.append('subagent/model-selection-policy', { allowedModels: preference.allowedModels })
+      return
+    }
+    session.append('subagent/model-selection-policy-change', {
+      enabled: preference.enabled,
+      allowedModels: preference.allowedModels,
+    })
+  }
+
+  /** Reconcile every live Agent after the preference changes. */
+  private reconcileLiveAgents(
+    policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>,
+    contextWindow: Pick<ProjectionHandle<number | null>, 'stateOf'>,
+  ): void {
+    const agents = this.ctx.get('agents')
+    if (agents === undefined) return
+    for (const agent of agents.list()) {
+      this.reconcile(policy, agent.session, false)
+      this.applyContextWindow(policy, contextWindow, agent)
+    }
+  }
+
+  /**
+   * Record the authorized route's context-window override for one child Agent.
+   * Top-level Agents keep their adapter metadata; child Agents read the latest
+   * event before their next request or compaction pass. Without an authorized
+   * route, the current override is left unchanged.
+   */
+  private applyContextWindow(
+    policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>,
+    contextWindow: Pick<ProjectionHandle<number | null>, 'stateOf'>,
+    agent: Agent,
+  ): void {
+    if (agent.session.header.origin !== 'subagent') return
+    const selection = agent.model.current()
+    const provider = selection?.provider ?? agent.options.provider
+    const model = selection?.model ?? agent.options.model
+    if (provider === undefined || model === undefined) return
+    const route = subagentModelSelectionPolicy(policy, agent.session)
+      ?.find(route => route.provider === provider && route.model === model)
+    if (route === undefined) return
+    const next = route.contextWindow ?? null
+    if (contextWindow.stateOf(agent.session) === next) return
+    agent.session.append('agent/context-window', { contextWindow: next })
+  }
+
+  /**
+   * Read a detached selection preference for the current Session policy.
    * @returns the enabled state and exact allowed routes.
    */
   private current(): SubagentModelSelectionSettings {

@@ -42,6 +42,8 @@ await handle.dispose()   // stops the loop, unregisters, removes the session, un
 
 `AgentOptions` 提供初始提供方／模型路由、可选的由适配器定义的 `reasoningEffort`，以及可选的正数 `maxTokens` 输出上限。循环会校验确切模型的推理（reasoning）支持、解析适配器默认值、把生效值记录在请求头中，并将它们应用到每个对话请求。可选的 `setup(agentCtx, agent)` 回调会在 agent 发布之前组合其作用域世界：`agentCtx` 拥有注册，显式的未发布 Agent 则提供其 Session；Context 不含反向 Agent 属性。作用域工具、提示词段与监听器在 `agent/created` 之前就已存在。Setup 只做组合：创建完成后才能驱动 agent。 setup 开始前 Session 已进入 Store 并完成 `session/created`，因此初始化事件通过实时事件流发出。
 
+`agent/context-window` 是记录实时上下文窗口覆盖的 log-only Session 事件：正数容量，或 `null` 表示回到适配器元数据；最新事件生效。仅 Host 使用的 `agentContextWindow` 投影折叠该事件，`agentContextWindowOf()` 读取当前值；循环的 `request/context` 记录和压缩使用该投影，因此拥有设置的设置服务可以在轮次之间改变容量而无需重建 Agent。它不是 `AgentOptions` 字段。适配器仍会执行其真实请求上限。
+
 <a id="model-selection"></a>
 ### 选择模型
 
@@ -116,6 +118,7 @@ await handle.agent.whenIdle()
 | [`src/types.ts`](src/types.ts) | `AgentOptions`、取消原因与收件箱投影词汇 |
 | [`src/dispatch.ts`](src/dispatch.ts) | `agentEvents` 融合分发器与 `assembleContextFor(agent)` |
 | [`src/model-selection.ts`](src/model-selection.ts) | `AgentModel`、持久投影与 `installModelSelection` 切换提示 |
+| [`src/context-window.ts`](src/context-window.ts) | log-only `agent/context-window` 事件及其 Host 投影 |
 | [`src/consumed-work.ts`](src/consumed-work.ts) | `foldConsumedWork(events)`：日志消费掉的工作最终怎样了 |
 | [`src/archive-admission.ts`](src/archive-admission.ts) | Workspace 注册表归档准入中的 `turn` 族：运行中的回合及其用户原因取消 |
 

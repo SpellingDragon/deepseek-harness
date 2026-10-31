@@ -11,12 +11,18 @@ export interface AllowedModelRoute {
   readonly provider: string
   /** Provider-owned exact model id. */
   readonly model: string
+  /** Adapter-owned effort used when a child selects this route without one. */
+  readonly reasoningEffort?: string
+  /** Context-window override for this child route; omission uses adapter metadata. */
+  readonly contextWindow?: number
 }
 
 /** Schema shared by the Host setting and its deployment base. */
 export const AllowedModelRouteSchema: z<AllowedModelRoute> = z.object({
   provider: z.string().min(1).required(),
   model: z.string().min(1).required(),
+  reasoningEffort: z.string().min(1),
+  contextWindow: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
 })
 
 /** Exact routes authorized for one Session. */
@@ -32,6 +38,50 @@ export interface ModelSelectionPolicy {
  */
 export function modelRouteKey(route: AllowedModelRoute): string {
   return `${route.provider}\0${route.model}`
+}
+
+/**
+ * Compare two authorization lists without treating their order as meaningful.
+ * Omitted and null lists both mean no policy. A route's default reasoning
+ * effort is part of the policy because changing it changes the child request.
+ * @param left - One route list or absence.
+ * @param right - The other route list or absence.
+ * @returns Whether both describe the same exact route policy.
+ */
+export function sameAllowedModelRoutes(
+  left: readonly AllowedModelRoute[] | null | undefined,
+  right: readonly AllowedModelRoute[] | null | undefined,
+): boolean {
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return (left ?? null) === (right ?? null)
+  }
+  if (left.length !== right.length) return false
+  const policies = new Set(left.map(modelRoutePolicyKey))
+  return right.every(route => policies.has(modelRoutePolicyKey(route)))
+}
+
+/**
+ * Stable policy identity for one route, including its default effort.
+ * @param route - Exact provider/model route and optional default effort.
+ * @returns Opaque key for policy equality checks.
+ */
+function modelRoutePolicyKey(route: AllowedModelRoute): string {
+  return `${modelRouteKey(route)}\0${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`
+}
+
+/**
+ * Find the authorized route matching one effective provider/model pair.
+ * @param routes - Authorized exact routes.
+ * @param provider - Effective provider id.
+ * @param model - Effective model id.
+ * @returns The matching route, or undefined when no route authorizes it.
+ */
+export function allowedRouteFor(
+  routes: readonly AllowedModelRoute[],
+  provider: string,
+  model: string,
+): AllowedModelRoute | undefined {
+  return routes.find(route => route.provider === provider && route.model === model)
 }
 
 /**
@@ -52,7 +102,22 @@ export function assertAllowedModelRoutes(routes: unknown): asserts routes is rea
       || candidate.provider.length === 0 || candidate.model.length === 0) {
       throw new Error('subagent model selection requires non-empty provider and model ids')
     }
-    const route = { provider: candidate.provider, model: candidate.model }
+    const reasoningEffort = 'reasoningEffort' in candidate ? candidate.reasoningEffort : undefined
+    if (reasoningEffort !== undefined
+      && (typeof reasoningEffort !== 'string' || reasoningEffort.length === 0)) {
+      throw new Error('subagent model selection requires a non-empty reasoning effort when provided')
+    }
+    const contextWindow = 'contextWindow' in candidate ? candidate.contextWindow : undefined
+    if (contextWindow !== undefined
+      && (typeof contextWindow !== 'number' || !Number.isSafeInteger(contextWindow) || contextWindow <= 0)) {
+      throw new Error('subagent model selection requires a positive safe-integer context window when provided')
+    }
+    const route = {
+      provider: candidate.provider,
+      model: candidate.model,
+      ...reasoningEffort === undefined ? {} : { reasoningEffort },
+      ...contextWindow === undefined ? {} : { contextWindow },
+    }
     const key = modelRouteKey(route)
     if (seen.has(key)) {
       throw new Error(`subagent model selection repeats route "${route.provider}/${route.model}"`)
@@ -125,6 +190,28 @@ export function requestedAgentOptions(
       ? {}
       : { reasoningEffort: ReasoningEffortId(request.reasoning_effort) },
   }
+}
+
+/**
+ * Apply an authorized route's configured default reasoning effort when the
+ * caller supplied neither a route effort nor a configured effort.
+ * @param routes - Authorized exact routes, or undefined without a policy.
+ * @param parentOptions - Current parent values that supply missing child values.
+ * @param requested - Effective child options after request/config merging.
+ * @returns Child options with the matching route's default effort, when present.
+ */
+export function applyAllowedRouteDefaultEffort(
+  routes: readonly AllowedModelRoute[] | undefined,
+  parentOptions: AgentOptions,
+  requested: AgentOptions | undefined,
+): AgentOptions | undefined {
+  if (routes === undefined || requested?.reasoningEffort !== undefined) return requested
+  const provider = requested?.provider ?? parentOptions.provider
+  const model = requested?.model ?? parentOptions.model
+  if (provider === undefined || model === undefined) return requested
+  const route = allowedRouteFor(routes, provider, model)
+  if (route?.reasoningEffort === undefined) return requested
+  return { ...requested, reasoningEffort: ReasoningEffortId(route.reasoningEffort) }
 }
 
 /**

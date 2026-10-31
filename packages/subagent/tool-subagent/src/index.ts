@@ -21,6 +21,7 @@ import {
 } from '@deepseek-ai/dsh-subagent'
 import type { SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import {
+  applyAllowedRouteDefaultEffort,
   assertAllowedModelSelection,
   hasConfiguredLlmSelection,
   hasDelegationModelRequest,
@@ -277,17 +278,23 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         const agentPreset = presets.resolve(args as PresetSelectionRequest)
         const modelRequest = args as DelegationModelRequest
         const parentOptions = parentAgentOptionsForDelegation(parent)
-        const requiresRoutePreflight = hasDelegationModelRequest(modelRequest)
+        const requiresConfiguredPreflight = hasDelegationModelRequest(modelRequest)
           || hasConfiguredLlmSelection(config.agentOptions)
-        const configuredChildAgentOptions = requiresRoutePreflight && providerRouteDefaults !== undefined
+        const configuredChildAgentOptions = requiresConfiguredPreflight && providerRouteDefaults !== undefined
           ? { ...providerRouteDefaults, ...config.agentOptions }
           : config.agentOptions
-        const requestedChildAgentOptions = requestedAgentOptions(
+        const requestedChildAgentOptions = applyAllowedRouteDefaultEffort(
+          routes,
           parentOptions,
-          configuredChildAgentOptions,
-          modelRequest,
-          modelSelectionEnabled,
+          requestedAgentOptions(
+            parentOptions,
+            configuredChildAgentOptions,
+            modelRequest,
+            modelSelectionEnabled,
+          ),
         )
+        const requiresRoutePreflight = requiresConfiguredPreflight
+          || hasConfiguredLlmSelection(requestedChildAgentOptions)
         assertAllowedModelSelection(
           modelSelectionPolicy,
           parentOptions,

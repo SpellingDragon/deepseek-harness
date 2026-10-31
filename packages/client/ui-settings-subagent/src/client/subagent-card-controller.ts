@@ -13,6 +13,8 @@ export interface SubagentCardFace {
   resetLimit: SubagentLimitsCardFace['resetField']
   toggleEnabled: SubagentModelSelectionCardFace['toggleEnabled']
   toggleModel: SubagentModelSelectionCardFace['toggleModel']
+  setModelReasoningEffort: SubagentModelSelectionCardFace['setModelReasoningEffort']
+  setModelContextWindow: SubagentModelSelectionCardFace['setModelContextWindow']
   retryCatalog: SubagentModelSelectionCardFace['retryCatalog']
   /** Save valid drafts through their owning namespace controllers. */
   save: () => void
@@ -58,6 +60,8 @@ export function subagentCardFace(
     resetLimit: limits.resetField,
     toggleEnabled: models.toggleEnabled,
     toggleModel: models.toggleModel,
+    setModelReasoningEffort: models.setModelReasoningEffort,
+    setModelContextWindow: models.setModelContextWindow,
     retryCatalog: models.retryCatalog,
     save: () => {
       const limitState = limits.hooks.subagentLimitsCard.getSnapshot()

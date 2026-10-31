@@ -42,6 +42,8 @@ await handle.dispose()   // stops the loop, unregisters, removes the session, un
 
 `AgentOptions` supplies the initial provider/model route, optional adapter-owned `reasoningEffort`, and optional positive `maxTokens` output cap. The loop validates exact-model reasoning support, resolves adapter defaults, records the effective values in the request header, and applies them to each conversation request. An optional `setup(agentCtx, agent)` callback composes the agent's scoped world before it is published: `agentCtx` owns registrations, while the explicit unpublished Agent provides its Session; the Context has no reverse Agent property. Scoped tools, prompt sections, and listeners exist before `agent/created`. Setup is composition-only: drive the agent only after creation resolves. The Session has entered its store and completed `session/created` before setup, so initialization events follow the live event feed.
 
+`agent/context-window` is a log-only Session event that records a live context-window override: a positive capacity, or `null` for adapter metadata. The latest event wins. The host-only `agentContextWindow` projection folds it, and `agentContextWindowOf()` reads the current value; the loop's `request/context` record and compaction use that projection, so an owning settings service can change capacity between turns without recreating the Agent. It is not an `AgentOptions` field. The adapter still enforces its real request limit.
+
 <a id="model-selection"></a>
 ### Select a model
 
@@ -116,6 +118,7 @@ The package is built on one separation: the public `Agent` surface and registry 
 | [`src/types.ts`](src/types.ts) | `AgentOptions`, cancellation causes, and inbox projection vocabulary |
 | [`src/dispatch.ts`](src/dispatch.ts) | `agentEvents` fused dispatcher and `assembleContextFor(agent)` |
 | [`src/model-selection.ts`](src/model-selection.ts) | `AgentModel`, its durable projection, and `installModelSelection` switch notices |
+| [`src/context-window.ts`](src/context-window.ts) | The log-only `agent/context-window` event and its host projection |
 | [`src/consumed-work.ts`](src/consumed-work.ts) | `foldConsumedWork(events)`: what the log's consumed work became |
 | [`src/archive-admission.ts`](src/archive-admission.ts) | The `turn` family of the Workspace registry's archive admission: a running turn and its user-cause cancel |
 

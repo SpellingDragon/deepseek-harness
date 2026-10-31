@@ -1,7 +1,7 @@
 /** Staged editor for the Host-owned subagent model allowlist. */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ModelProviderGroup } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ModelProviderGroup, ModelReasoningEffort } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsFormScope, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
 
@@ -12,13 +12,17 @@ export const SUBAGENT_MODEL_SELECTION_NS = 'subagent-model-selection-settings'
 export interface AllowedSubagentModel {
   provider: string
   model: string
+  /** Adapter-owned effort used when a child selects this route without one. */
+  reasoningEffort?: string
+  /** Context-window override for this child route; omission uses adapter metadata. */
+  contextWindow?: number
 }
 
 /** Settings fields stored for subagent model selection. */
 export interface SubagentModelSelectionSettings {
-  /** Whether model-facing child route selection applies to new Sessions. */
+  /** Whether model-facing child route selection is enabled. */
   enabled: boolean
-  /** Exact child routes offered to newly composed top-level Sessions. */
+  /** Exact child routes authorized while selection is enabled. */
   allowedModels: AllowedSubagentModel[]
 }
 
@@ -30,6 +34,8 @@ export interface SubagentModelCandidate extends AllowedSubagentModel {
   providerName: string
   /** Adapter-owned model display name. */
   modelName: string
+  /** Adapter-owned efforts for this exact route. */
+  efforts: readonly ModelReasoningEffort[]
   /** Whether the current adapter catalog advertises this exact route. */
   available: boolean
   /** Whether the current draft authorizes this route. */
@@ -48,6 +54,8 @@ export interface SubagentModelSelectionCardState extends SettingsFormShell {
   catalogPartial: boolean
   /** Whether a newer Host revision invalidated the current draft. */
   conflicted: boolean
+  /** Generation that resets component-local editor state after a draft or Host replacement. */
+  resetToken: number
 }
 
 /** Registration-side face for the subagent model-selection card. */
@@ -60,6 +68,10 @@ export interface SubagentModelSelectionCardFace {
   toggleEnabled: () => void
   /** Stage one exact route as allowed or denied. */
   toggleModel: (key: string) => void
+  /** Stage one selected route's default reasoning effort. */
+  setModelReasoningEffort: (key: string, effort: string | undefined) => void
+  /** Stage one selected route's context-window override; undefined uses adapter metadata. */
+  setModelContextWindow: (key: string, contextWindow: number | undefined) => void
   /** Retry the adapter directory. */
   retryCatalog: () => void
   /** Persist the switch and exact routes as one revision-fenced mutation. */
@@ -93,12 +105,16 @@ export function subagentModelCandidates(
   const candidates = groups.flatMap(group => group.models.map((model): SubagentModelCandidate => {
     const route = { provider: group.id, model: model.id }
     const key = subagentModelKey(route)
+    const storedRoute = storedByKey.get(key)
     storedByKey.delete(key)
     return {
       ...route,
       key,
       providerName: group.name,
       modelName: model.name,
+      efforts: model.reasoning?.efforts ?? [],
+      ...(storedRoute?.reasoningEffort === undefined ? {} : { reasoningEffort: storedRoute.reasoningEffort }),
+      ...(storedRoute?.contextWindow === undefined ? {} : { contextWindow: storedRoute.contextWindow }),
       available: true,
       selected: selected.has(key),
     }
@@ -110,6 +126,7 @@ export function subagentModelCandidates(
       key,
       providerName: route.provider,
       modelName: route.model,
+      efforts: [],
       available: false,
       selected: selected.has(key),
     })
@@ -119,8 +136,12 @@ export function subagentModelCandidates(
 
 function sameRoutes(left: readonly AllowedSubagentModel[], right: readonly AllowedSubagentModel[]): boolean {
   if (left.length !== right.length) return false
-  const rightKeys = new Set(right.map(subagentModelKey))
-  return left.every(route => rightKeys.has(subagentModelKey(route)))
+  const rightByKey = new Map(right.map(route => [
+    subagentModelKey(route),
+    `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`,
+  ]))
+  return left.every(route => rightByKey.get(subagentModelKey(route))
+    === `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`)
 }
 
 /** Bridges one configuration form and the live adapter directory onto a staged card. */
@@ -137,6 +158,8 @@ export class SubagentModelSelectionCardController {
   private disposed = false
   private saveGeneration = 0
   private catalogGeneration = 0
+  private resetToken = 0
+  private lastRevision: number | undefined
   private readonly store: SnapshotStore<SubagentModelSelectionCardState>
   private readonly unsubscribe: () => void
 
@@ -149,8 +172,14 @@ export class SubagentModelSelectionCardController {
     private readonly scope: SettingsFormScope<SubagentModelSelectionSettings>,
     private readonly ctx: ClientContext,
   ) {
+    this.lastRevision = scope.getSnapshot().revision
     this.store = createSnapshotStore(this.projection())
     this.unsubscribe = scope.subscribe(() => {
+      const revision = this.scope.getSnapshot().revision
+      if (revision !== this.lastRevision) {
+        this.lastRevision = revision
+        this.resetToken += 1
+      }
       if (!this.saving && this.draftRoutes !== undefined
         && this.scope.getSnapshot().revision !== this.draftRevision) {
         if (this.currentEnabled() === this.enabled()
@@ -180,6 +209,8 @@ export class SubagentModelSelectionCardController {
       hooks: { subagentModelSelectionCard: this.store },
       toggleEnabled: () => { this.toggleEnabled() },
       toggleModel: (key) => { this.toggleModel(key) },
+      setModelReasoningEffort: (key, effort) => { this.setModelReasoningEffort(key, effort) },
+      setModelContextWindow: (key, contextWindow) => { this.setModelContextWindow(key, contextWindow) },
       retryCatalog: () => { void this.loadCatalog() },
       save: () => { void this.save() },
       discard: () => { this.discard() },
@@ -235,12 +266,46 @@ export class SubagentModelSelectionCardController {
     this.publish()
   }
 
+  private setModelReasoningEffort(key: string, effort: string | undefined): void {
+    if (!this.enabled() || this.saving || !this.scope.getSnapshot().writable) return
+    const candidate = this.candidates().find(candidate => candidate.key === key)
+    if (candidate === undefined || !candidate.selected
+      || (effort !== undefined && !candidate.efforts.some(option => option.id === effort))) return
+    const routes = this.beginDraft()
+    routes.set(key, {
+      provider: candidate.provider,
+      model: candidate.model,
+      ...(effort === undefined ? {} : { reasoningEffort: effort }),
+      ...(candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow }),
+    })
+    this.failed = false
+    this.publish()
+  }
+
+  private setModelContextWindow(key: string, contextWindow: number | undefined): void {
+    if (!this.enabled() || this.saving || !this.scope.getSnapshot().writable) return
+    if (contextWindow !== undefined
+      && (!Number.isSafeInteger(contextWindow) || contextWindow <= 0)) return
+    const candidate = this.candidates().find(candidate => candidate.key === key)
+    if (candidate === undefined || !candidate.selected) return
+    const routes = this.beginDraft()
+    routes.set(key, {
+      provider: candidate.provider,
+      model: candidate.model,
+      ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: candidate.reasoningEffort }),
+      ...(contextWindow === undefined ? {} : { contextWindow }),
+    })
+    this.failed = false
+    this.publish()
+  }
+
   private clearDraft(): void {
     this.draftEnabled = undefined
     this.draftRoutes = undefined
     this.draftRevision = undefined
     this.failed = false
     this.conflicted = false
+    this.resetToken += 1
   }
 
   private discard(): void {
@@ -281,7 +346,12 @@ export class SubagentModelSelectionCardController {
       {
         op: 'set',
         path: ['allowedModels'],
-        value: desired.map(route => ({ provider: route.provider, model: route.model })),
+        value: desired.map(route => ({
+          provider: route.provider,
+          model: route.model,
+          ...(route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort }),
+          ...(route.contextWindow === undefined ? {} : { contextWindow: route.contextWindow }),
+        })),
       },
     ], this.draftRevision)
     if (generation !== this.saveGeneration) return
@@ -347,6 +417,7 @@ export class SubagentModelSelectionCardController {
       catalogStatus: this.catalogStatus,
       catalogPartial: this.catalogPartial,
       conflicted: this.conflicted,
+      resetToken: this.resetToken,
     }
   }
 

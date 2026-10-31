@@ -1,0 +1,22 @@
+{
+  "formatVersion": 2,
+  "roots": [
+    {"key":"event:subagent/model-selection-policy","kind":"event","event":"subagent/model-selection-policy","surface":false,"digest":"c44f40f7bb4c8c5ca95020d92993e2a72836fdcbc74512d2a0f748c372929984"},
+    {"key":"event:subagent/model-selection-policy-change","kind":"event","event":"subagent/model-selection-policy-change","surface":false,"digest":"47fc1fee10b0f02821d2abf2dd3965f039827887366cbc12a2b7e5d4de6b7556"}
+  ],
+  "types": [],
+  "nodes": {
+    "0657d3ca5ac4e7bf": {"kind":"primitive","type":"number"},
+    "0a8a062bc9c3c0d9": {"kind":"literal","value":"subagent/model-selection-policy"},
+    "318a35ec8fd5ec71": {"kind":"literal","value":"subagent/model-selection-policy-change"},
+    "47fc1fee10b0f028": {"kind":"object","properties":[{"name":"data","type":"785c2a497ac7d9eb","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"318a35ec8fd5ec71","optional":false}],"indices":[]},
+    "48cb91c5ea8f4cbe": {"kind":"array","element":"7c7aa192a6e46dfc"},
+    "4cd48f3e5108bd6e": {"kind":"primitive","type":"string"},
+    "785c2a497ac7d9eb": {"kind":"object","properties":[{"name":"allowedModels","type":"48cb91c5ea8f4cbe","optional":false},{"name":"enabled","type":"aa93010d0e521ad7","optional":false}],"indices":[]},
+    "7c7aa192a6e46dfc": {"kind":"object","properties":[{"name":"contextWindow","type":"0657d3ca5ac4e7bf","optional":true},{"name":"model","type":"4cd48f3e5108bd6e","optional":false},{"name":"provider","type":"4cd48f3e5108bd6e","optional":false},{"name":"reasoningEffort","type":"4cd48f3e5108bd6e","optional":true}],"indices":[]},
+    "aa93010d0e521ad7": {"kind":"primitive","type":"boolean"},
+    "bcfe208ad45fa0a9": {"kind":"object","properties":[{"name":"allowedModels","type":"48cb91c5ea8f4cbe","optional":false}],"indices":[]},
+    "c44f40f7bb4c8c5c": {"kind":"object","properties":[{"name":"data","type":"bcfe208ad45fa0a9","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"0a8a062bc9c3c0d9","optional":false}],"indices":[]},
+    "dacf3d5f3e4ff619": {"kind":"literal","value":true}
+  }
+}
