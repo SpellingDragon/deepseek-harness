@@ -689,7 +689,7 @@ describe('pressure measurement and retention', () => {
     expect(measured).toBeLessThan(800)
 
     const overridden = agent(session, MODEL)
-    overridden.contextWindow = measured
+    overridden.session.append('agent/context-window', { contextWindow: measured })
     await expect(compact.compactIfNeeded(overridden, 'pressure', SIGNAL)).resolves.not.toBeNull()
   })
 

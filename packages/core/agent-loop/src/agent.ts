@@ -48,6 +48,8 @@ interface LoopProjections {
   readonly modelSelection: () => ModelSelectionProjectionState
   /** Current queued and claimed input. */
   readonly inbox: () => InboxState
+  /** Latest recorded context-window override, or undefined for adapter metadata. */
+  readonly contextWindow: () => number | undefined
 }
 
 type Phase =
@@ -124,8 +126,8 @@ export class ReactLoopAgent implements Agent {
 
   /** Whether this loop instance has appended its initial/resume request anchor. */
   private requestHeaderLogged = false
-  /** Live context-window override; undefined follows adapter metadata. */
-  private contextWindowOverride: number | undefined
+  /** Latest recorded context-window override, or undefined for adapter metadata. */
+  private readonly readContextWindow: () => number | undefined
   /** Surface generation at attachment or the preceding built request. */
   private requestSurfaceGeneration: number
   private readonly runtimeContext: RuntimeContextProjection
@@ -150,6 +152,7 @@ export class ReactLoopAgent implements Agent {
     this.ctx = this.scope.ctx
     this.model = new AgentModel(projections.modelSelection, session, options)
     this.inbox = new ReactLoopInbox(projections.inbox, session, this.dispatch)
+    this.readContextWindow = projections.contextWindow
     this.phase = { kind: 'idle', lastTurn }
     this.runtimeContext = new RuntimeContextProjection(this.ctx, session)
     this.systemPrompt = new SystemPromptProjection(session)
@@ -157,18 +160,6 @@ export class ReactLoopAgent implements Agent {
 
   get status(): AgentStatus {
     return this.phase.kind === 'idle' || this.phase.kind === 'maintenance' ? 'idle' : 'running'
-  }
-
-  get contextWindow(): number | undefined {
-    return this.contextWindowOverride
-  }
-
-  set contextWindow(contextWindow: number | undefined) {
-    if (contextWindow !== undefined
-      && (!Number.isSafeInteger(contextWindow) || contextWindow <= 0)) {
-      throw new TypeError('agent contextWindow must be a positive safe integer')
-    }
-    this.contextWindowOverride = contextWindow
   }
 
   /** Commit a phase and publish its externally visible status transition. */
@@ -720,7 +711,7 @@ export class ReactLoopAgent implements Agent {
     }
     this.requestSurfaceGeneration = surfaceGeneration
 
-    const contextWindow = this.contextWindow ?? preparedCall?.context?.contextWindow
+    const contextWindow = this.readContextWindow() ?? preparedCall?.context?.contextWindow
     const systemPromptUpdate = preparedCall?.systemPromptUpdate
     const requestContext: RequestContext = {
       provider: config.provider,

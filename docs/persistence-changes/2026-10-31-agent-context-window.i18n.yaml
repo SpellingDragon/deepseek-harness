@@ -1,0 +1,28 @@
+# Bilingual-pair consistency record for 2026-10-31-agent-context-window.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/persistence-changes/2026-10-31-agent-context-window.md
+/:
+  en: 3d5a424ae7d7e46b
+  zh: c22a8e4a62d8cc1a
+/2026-10-31-agent-context-window:
+  en: 3559b6b304b4b737
+  zh: 2b28b6a629a7b52c
+/2026-10-31-agent-context-window/summary:
+  en: 64d39057d70791ce
+  zh: b45b14948c7c915a
+/2026-10-31-agent-context-window/table-of-contents:
+  en: 6cf314a069ceb451
+  zh: 9adff678e9ecab3b
+/2026-10-31-agent-context-window/declaration:
+  en: 6907136f28e48c90
+  zh: 02f8298485f3d8e7
+/2026-10-31-agent-context-window/compatibility:
+  en: ab11593cb75fe90f
+  zh: ba68122f273c698e
+/2026-10-31-agent-context-window/verification:
+  en: a4c4dafd4ee4453a
+  zh: 8ea142453726e54e
+/2026-10-31-agent-context-window/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

@@ -69,12 +69,6 @@ interface Agent {
   readonly model: Model
   /** Agent-owned access to durable pending work. */
   readonly inbox: Inbox
-  /**
-   * Live context-window override used by request metadata and compaction.
-   * Undefined follows the adapter's model metadata; a settings owner may
-   * replace it without recreating the Agent.
-   */
-  contextWindow?: number | undefined
   /** The current lifecycle state, mirrored on every `agent/status` transition. */
   readonly status: AgentStatus
   /** Agent-scoped context; its contributions are agent-local, unwind on disposal, and reject registration afterward. */
@@ -218,7 +212,7 @@ interface AgentOptions {
 }
 ```
 
-Step preparation requires `provider` and `model` before prompt assembly. The deprecated `agent/request` hook may change request controls but must preserve that route. An explicit `reasoningEffort` seeds the first request on that route; exact-model resolution validates it, while omission allows the adapter default to materialize. When present, `maxTokens` must be a positive safe integer and caps every conversation-model request; omission allows the exact-model adapter default to materialize before the request header, or otherwise leaves provider behavior unchanged. A live `agent.contextWindow` property may replace the adapter's exact-model capacity for `request/context` metadata and compaction without recreating the Agent; assigning a positive safe integer sets the override, and `undefined` returns to adapter metadata. The adapter still enforces its real request limit. An agent-scoped `deployment:persona-prefix` prompt section may shadow the global default persona.
+Step preparation requires `provider` and `model` before prompt assembly. The deprecated `agent/request` hook may change request controls but must preserve that route. An explicit `reasoningEffort` seeds the first request on that route; exact-model resolution validates it, while omission allows the adapter default to materialize. When present, `maxTokens` must be a positive safe integer and caps every conversation-model request; omission allows the exact-model adapter default to materialize before the request header, or otherwise leaves provider behavior unchanged. A log-only `agent/context-window` event records a live capacity override (a positive safe integer, or `null` to return to adapter metadata); the `agentContextWindow` host projection folds the latest event, and the loop's `request/context` record and compaction read it without recreating the Agent. The adapter still enforces its real request limit. An agent-scoped `deployment:persona-prefix` prompt section may shadow the global default persona.
 
 `AgentLoop` registers `modelSelection` on `ctx.sessionProjections` and exposes selection operations through each `agent.model` instance. `model/selection` records a complete choice without entering model history. A matching request header clears `pending`; the latest request remains `lastUsed`. Adapter-defaulted effort is omitted so later requests resolve the default again. `next` is null only before either a choice or a request is recorded; in that case `AgentOptions` supplies the route. The [Agent model API](../../packages/core/agent/README.md) describes selection precedence and resume policy.
 

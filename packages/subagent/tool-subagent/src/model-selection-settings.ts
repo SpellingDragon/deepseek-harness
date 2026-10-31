@@ -1,10 +1,11 @@
 /** Host-owned opt-in setting for model-selectable subagent delegation. */
 import type { Volatile } from '@deepseek-ai/cordis'
 
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context, FiberState, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
+import { agentContextWindowProjectionDefinition } from '@deepseek-ai/dsh-agent'
 // Type-only: the Agent lifecycle payload and the Loader's volatile-update event.
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -58,24 +59,38 @@ export class SubagentModelSelectionConfig extends Service {
   protected async [Service.init](): Promise<void> {
     const ctx = this.ctx
     const policyReady = ctx.sessionProjections.register(subagentModelSelectionProjectionDefinition)
+    const contextWindowReady = ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
     ctx.on('agent/created', async ({ agent, source }) => {
       const policy = await policyReady
+      const contextWindow = await contextWindowReady
       ctx.fiber.assertActive()
       this.reconcile(policy, agent.session, source === 'startup')
-      this.applyContextWindow(policy, agent)
+      this.applyContextWindow(policy, contextWindow, agent)
     })
     const policy = await policyReady
+    const contextWindow = await contextWindowReady
     ctx.fiber.assertActive()
     ctx.on('loader/volatile-update', (paths) => {
       if (!paths.some(path => path[0] === 'enabled' || path[0] === 'allowedModels')) return
-      this.reconcileLiveAgents(policy)
+      this.reconcileLiveAgents(policy, contextWindow)
     })
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'model/selection') return
-      const agent = ctx.get('agents')?.get(session.id)
-      if (agent !== undefined) this.applyContextWindow(policy, agent)
+      if (ctx.get('agents')?.get(session.id) === undefined) return
+      queueMicrotask(() => {
+        /* v8 ignore next -- owner disposal may beat the deferred update */
+        if (ctx.fiber.state !== FiberState.ACTIVE) return
+        const agent = ctx.get('agents')?.get(session.id)
+        /* v8 ignore next -- the Agent may leave before the deferred update */
+        if (agent === undefined) return
+        this.applyContextWindow(policy, contextWindow, agent)
+      })
     })
-    for (const agent of ctx.get('agents')?.list() ?? []) this.applyContextWindow(policy, agent)
+    ctx.on('agent/pre-step', ({ agent }, next) => {
+      this.applyContextWindow(policy, contextWindow, agent)
+      return next()
+    }, { prepend: true })
+    for (const agent of ctx.get('agents')?.list() ?? []) this.applyContextWindow(policy, contextWindow, agent)
   }
 
   /**
@@ -104,23 +119,27 @@ export class SubagentModelSelectionConfig extends Service {
   }
 
   /** Reconcile every live Agent after the preference changes. */
-  private reconcileLiveAgents(policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>): void {
+  private reconcileLiveAgents(
+    policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>,
+    contextWindow: Pick<ProjectionHandle<number | null>, 'stateOf'>,
+  ): void {
     const agents = this.ctx.get('agents')
     if (agents === undefined) return
     for (const agent of agents.list()) {
       this.reconcile(policy, agent.session, false)
-      this.applyContextWindow(policy, agent)
+      this.applyContextWindow(policy, contextWindow, agent)
     }
   }
 
   /**
-   * Apply the authorized route's context-window override to one child Agent.
-   * Top-level Agents keep their adapter metadata; child Agents update live
-   * before their next request or compaction pass. Without an authorized route,
-   * the current window is left unchanged.
+   * Record the authorized route's context-window override for one child Agent.
+   * Top-level Agents keep their adapter metadata; child Agents read the latest
+   * event before their next request or compaction pass. Without an authorized
+   * route, the current override is left unchanged.
    */
   private applyContextWindow(
     policy: Pick<ProjectionHandle<AllowedModelRoute[] | null>, 'stateOf'>,
+    contextWindow: Pick<ProjectionHandle<number | null>, 'stateOf'>,
     agent: Agent,
   ): void {
     if (agent.session.header.origin !== 'subagent') return
@@ -131,7 +150,9 @@ export class SubagentModelSelectionConfig extends Service {
     const route = subagentModelSelectionPolicy(policy, agent.session)
       ?.find(route => route.provider === provider && route.model === model)
     if (route === undefined) return
-    agent.contextWindow = route.contextWindow
+    const next = route.contextWindow ?? null
+    if (contextWindow.stateOf(agent.session) === next) return
+    agent.session.append('agent/context-window', { contextWindow: next })
   }
 
   /**

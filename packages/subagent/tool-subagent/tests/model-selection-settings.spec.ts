@@ -4,7 +4,11 @@ import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-direc
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { assembleContextFor } from '@deepseek-ai/dsh-agent'
+import {
+  agentContextWindowOf,
+  agentContextWindowProjectionDefinition,
+  assembleContextFor,
+} from '@deepseek-ai/dsh-agent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -605,6 +609,7 @@ describe('SubagentModelSelectionConfig', () => {
     const route = { provider: 'alpha', model: 'fast-model', contextWindow: 64_000 }
     const otherRoute = { provider: 'beta', model: 'slow-model', contextWindow: 16_000 }
     await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [route, otherRoute] })
+    const contextWindow = await ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
     const parent = await createAgent(ctx, 'context-parent', {
       agentOptions: { provider: 'alpha', model: 'fast-model' },
     })
@@ -613,23 +618,57 @@ describe('SubagentModelSelectionConfig', () => {
       agentOptions: { provider: 'alpha', model: 'fast-model' },
     })
 
-    expect(parent.contextWindow).toBeUndefined()
-    expect(child.contextWindow).toBe(64_000)
+    expect(agentContextWindowOf(contextWindow, parent.session)).toBeUndefined()
+    expect(agentContextWindowOf(contextWindow, child.session)).toBe(64_000)
     await selectionConfigs.get(ctx)!.update({
       enabled: true,
       allowedModels: [{ ...route, contextWindow: 32_000 }, otherRoute],
     })
-    expect(child.contextWindow).toBe(32_000)
+    expect(agentContextWindowOf(contextWindow, child.session)).toBe(32_000)
     child.model.select({ provider: 'beta', model: 'slow-model' })
-    expect(child.contextWindow).toBe(16_000)
+    await vi.waitFor(() => {
+      expect(agentContextWindowOf(contextWindow, child.session)).toBe(16_000)
+    })
     await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [route] })
-    expect(child.contextWindow).toBe(16_000)
+    expect(agentContextWindowOf(contextWindow, child.session)).toBe(16_000)
     await selectionConfigs.get(ctx)!.update({ enabled: false })
-    expect(child.contextWindow).toBe(16_000)
+    expect(agentContextWindowOf(contextWindow, child.session)).toBe(16_000)
     const unconfigured = await createAgent(ctx, 'context-unconfigured', {
       meta: { parentSession: parent.id, origin: 'subagent' },
     })
-    expect(unconfigured.contextWindow).toBeUndefined()
+    expect(agentContextWindowOf(contextWindow, unconfigured.session)).toBeUndefined()
+    await ctx.fiber.dispose()
+  })
+
+  it('clears the window when the authorized route drops it and leaves it unchanged thereafter', async () => {
+    const ctx = await boot()
+    const withWindow = { provider: 'alpha', model: 'fast-model', contextWindow: 64_000 }
+    const withoutWindow = { provider: 'alpha', model: 'fast-model' }
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [withWindow] })
+    const contextWindow = await ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
+    const parent = await createAgent(ctx, 'context-clear-parent')
+    const child = await createAgent(ctx, 'context-clear-child', {
+      meta: { parentSession: parent.id, origin: 'subagent' },
+      agentOptions: { provider: 'alpha', model: 'fast-model' },
+    })
+    expect(agentContextWindowOf(contextWindow, child.session)).toBe(64_000)
+
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [withoutWindow] })
+    await vi.waitFor(() => {
+      expect(agentContextWindowOf(contextWindow, child.session)).toBeUndefined()
+    })
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [withoutWindow] })
+    expect(agentContextWindowOf(contextWindow, child.session)).toBeUndefined()
+    const next = () => Promise.resolve({ kind: 'enter' as const, messages: [] })
+    await expect(ctx.waterfall(ctx as never, 'agent/pre-step', {
+      agent: child,
+      modelSelection: { provider: 'alpha', model: 'fast-model' },
+      messages: [],
+      turn: 1,
+      step: 1,
+      signal: new AbortController().signal,
+    }, next)).resolves.toEqual({ kind: 'enter', messages: [] })
+    expect(agentContextWindowOf(contextWindow, child.session)).toBeUndefined()
     await ctx.fiber.dispose()
   })
 
@@ -639,13 +678,14 @@ describe('SubagentModelSelectionConfig', () => {
     await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: [route] })
     const seed = Session.create(SessionId('context-window-seed'))
     seed.append('subagent/model-selection-policy', { allowedModels: [route] })
+    const contextWindow = await ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
     const parent = await createAgent(ctx, 'context-restore-parent')
     const restored = await createAgent(ctx, 'context-restored', {
       meta: { parentSession: parent.id, origin: 'subagent' },
       seed: seed.snapshotEvents(),
       agentOptions: { provider: 'alpha', model: 'fast-model' },
     })
-    expect(restored.contextWindow).toBe(48_000)
+    expect(agentContextWindowOf(contextWindow, restored.session)).toBe(48_000)
     await ctx.fiber.dispose()
   })
 

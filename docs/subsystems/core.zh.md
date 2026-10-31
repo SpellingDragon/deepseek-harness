@@ -73,12 +73,6 @@ interface Agent {
   readonly model: Model
   /** Agent-owned access to durable pending work. */
   readonly inbox: Inbox
-  /**
-   * Live context-window override used by request metadata and compaction.
-   * Undefined follows the adapter's model metadata; a settings owner may
-   * replace it without recreating the Agent.
-   */
-  contextWindow?: number | undefined
   /** The current lifecycle state, mirrored on every `agent/status` transition. */
   readonly status: AgentStatus
   /** Agent-scoped context; its contributions are agent-local, unwind on disposal, and reject registration afterward. */
@@ -222,7 +216,7 @@ interface AgentOptions {
 }
 ```
 
-步骤准备在提示词组装前要求 `provider` 与 `model` 都存在。已弃用的 `agent/request` hook 可以更改请求控制参数，但必须保留该路由。显式 `reasoningEffort` 会为该路由的首次请求提供初始值；确切模型解析会校验该值，省略时则允许填入适配器默认值。提供 `maxTokens` 时，它必须是正安全整数，并限制每次对话模型请求的输出；省略时，系统会在写入请求 header 前填入确切模型的适配器默认值，否则提供方行为保持不变。实时的 `agent.contextWindow` 属性可以替代适配器的确切模型容量用于 `request/context` 元数据和压缩，而无需重建 Agent；赋值为正安全整数即设置覆盖，`undefined` 则回到适配器元数据。适配器仍会执行其真实请求上限。agent 作用域的 `deployment:persona-prefix` 提示词段落可以遮蔽全局默认 persona。
+步骤准备在提示词组装前要求 `provider` 与 `model` 都存在。已弃用的 `agent/request` hook 可以更改请求控制参数，但必须保留该路由。显式 `reasoningEffort` 会为该路由的首次请求提供初始值；确切模型解析会校验该值，省略时则允许填入适配器默认值。提供 `maxTokens` 时，它必须是正安全整数，并限制每次对话模型请求的输出；省略时，系统会在写入请求 header 前填入确切模型的适配器默认值，否则提供方行为保持不变。log-only 的 `agent/context-window` 事件记录实时容量覆盖（正安全整数，或 `null` 回到适配器元数据）；仅 Host 使用的 `agentContextWindow` 投影折叠最新事件，循环的 `request/context` 记录和压缩读取它，无需重建 Agent。适配器仍会执行其真实请求上限。agent 作用域的 `deployment:persona-prefix` 提示词段落可以遮蔽全局默认 persona。
 
 `AgentLoop` 在 `ctx.sessionProjections` 上注册 `modelSelection`，并通过每个 `agent.model` 实例提供选择操作。`model/selection` 记录完整选择，但不进入模型历史。匹配的请求头会清除 `pending`，最近请求仍保留为 `lastUsed`。适配器默认的推理强度会被省略，使后续请求重新解析默认值。只有尚未记录选择或请求时，`next` 才为 null，此时由 `AgentOptions` 提供路由。[Agent 模型 API](../../packages/core/agent/README.zh.md)说明选择优先级与恢复策略。
 

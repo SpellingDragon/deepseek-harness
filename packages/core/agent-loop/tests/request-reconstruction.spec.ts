@@ -941,15 +941,14 @@ describe('request/context capacity records', () => {
     const agent = await ctx.agentLoop.create(SessionId('capacity-override'), {
       provider: 'mock', model: 'mock',
     })
-    agent.contextWindow = 64_000
+    agent.session.append('agent/context-window', { contextWindow: 64_000 })
 
     send(agent, 'first')
     await waitForIdle(ctx, agent)
-    expect(() => { agent.contextWindow = 0 }).toThrow('agent contextWindow must be a positive safe integer')
-    agent.contextWindow = 32_000
+    agent.session.append('agent/context-window', { contextWindow: 32_000 })
     send(agent, 'second')
     await waitForIdle(ctx, agent)
-    agent.contextWindow = undefined
+    agent.session.append('agent/context-window', { contextWindow: null })
     send(agent, 'third')
     await waitForIdle(ctx, agent)
 

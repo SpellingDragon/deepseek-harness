@@ -23,7 +23,11 @@ import type {
   ModelSelectionProjectionState,
   InboxState,
 } from '@deepseek-ai/dsh-agent'
-import { modelSelectionProjectionDefinition } from '@deepseek-ai/dsh-agent'
+import {
+  agentContextWindowOf,
+  agentContextWindowProjectionDefinition,
+  modelSelectionProjectionDefinition,
+} from '@deepseek-ai/dsh-agent'
 import { errorChain, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { interruptedTurnClosers, SessionLogOffset, SessionPreparation } from '@deepseek-ai/dsh-session'
 import type { Session, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
@@ -313,6 +317,7 @@ export class AgentLoop extends Service implements AgentFactory {
   private readonly runtime: { ctx: Context }
   private modelProjectionHandle!: ProjectionHandle<ModelSelectionProjectionState>
   private inboxProjectionHandle!: ProjectionHandle<InboxState>
+  private contextWindowProjectionHandle!: ProjectionHandle<number | null>
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'agentLoop')
@@ -333,6 +338,7 @@ export class AgentLoop extends Service implements AgentFactory {
     ctx.effect(() => () => ownership.dispose(), 'agentLoop.transactions()')
     this.modelProjectionHandle = await ctx.sessionProjections.register(modelSelectionProjectionDefinition)
     this.inboxProjectionHandle = await ctx.sessionProjections.register(inboxProjectionDefinition)
+    this.contextWindowProjectionHandle = await ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
     ctx.effect(() => ctx.agents.setFactory(this), 'agentLoop.setFactory()')
     ctx.systemPrompt.variable('provider', context => context.modelSelection?.provider ?? context.agent?.options.provider)
     ctx.systemPrompt.variable('model', context => context.modelSelection?.model ?? context.agent?.options.model)
@@ -568,6 +574,7 @@ export class AgentLoop extends Service implements AgentFactory {
       const projections = {
         modelSelection: this.modelProjectionHandle.readerFor(session),
         inbox: this.inboxProjectionHandle.readerFor(session),
+        contextWindow: () => agentContextWindowOf(this.contextWindowProjectionHandle, session),
       }
       unfollowOwner = ownerCtx.effect(function* () {
         const created = machine = new ReactLoopAgent(

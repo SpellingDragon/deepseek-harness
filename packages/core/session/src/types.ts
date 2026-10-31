@@ -262,7 +262,10 @@ export interface RequestContext {
   provider: string
   /** Provider-owned model id the metadata belongs to. */
   model: string
-  /** Context capacity in tokens used for budgeting: the live Agent override when set, otherwise the adapter's advertised capacity. */
+  /**
+   * Context capacity in tokens used for budgeting: the latest
+   * `agent/context-window` event when set, otherwise the adapter's advertised capacity.
+   */
   contextWindow?: number
   /** `'in-history'` when the route reads the latest `system` message at any position as the effective system prompt. */
   systemPromptUpdate?: SystemPromptUpdate
