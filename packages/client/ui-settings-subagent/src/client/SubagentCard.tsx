@@ -45,7 +45,8 @@ export function SubagentCard(props: SubagentCardProps) {
             <SubagentModelSelectionFields key={models.resetToken} t={t} state={{ ...models, saving: state.saving }}
               toggleEnabled={props.toggleEnabled} toggleModel={props.toggleModel}
               setModelReasoningEffort={props.setModelReasoningEffort}
-              setModelContextWindow={props.setModelContextWindow} retryCatalog={props.retryCatalog} />
+              setModelContextWindow={props.setModelContextWindow}
+              setDefaultModel={props.setDefaultModel} retryCatalog={props.retryCatalog} />
           </section>
         )
         : null}

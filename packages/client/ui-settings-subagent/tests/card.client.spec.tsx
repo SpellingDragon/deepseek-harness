@@ -59,6 +59,7 @@ function renderSubagent(
     toggleModel: vi.fn(),
     setModelReasoningEffort: vi.fn(),
     setModelContextWindow: vi.fn(),
+    setDefaultModel: vi.fn(),
     retryCatalog: vi.fn(),
     save: vi.fn(),
     discard: vi.fn(),
@@ -102,6 +103,7 @@ describe('Subagent model selection fields', () => {
           efforts: [],
           available: true,
           selected: true,
+          default: false,
         },
         {
           key: 'alpha\0deep',
@@ -112,6 +114,7 @@ describe('Subagent model selection fields', () => {
           efforts: [],
           available: true,
           selected: false,
+          default: false,
         },
       ],
       catalogStatus: 'ready',
@@ -139,6 +142,7 @@ describe('Subagent model selection fields', () => {
         reasoningEffort: 'high',
         available: true,
         selected: true,
+        default: false,
       }],
     })
 
@@ -153,6 +157,35 @@ describe('Subagent model selection fields', () => {
     expect(actions.setModelReasoningEffort).toHaveBeenCalledWith('alpha\0fast', undefined)
   })
 
+  it('stages one authorized model as the child default and clears it on a second click', () => {
+    const candidate = (model: string, isDefault: boolean) => ({
+      key: `alpha\0${model}`,
+      provider: 'alpha',
+      model,
+      providerName: 'Alpha API',
+      modelName: model === 'fast' ? 'Fast' : 'Deep',
+      efforts: [],
+      available: true,
+      selected: true,
+      default: isDefault,
+    })
+    const actions = renderSubagentModelSelection({
+      enabled: true,
+      catalogStatus: 'ready',
+      candidates: [candidate('fast', false), candidate('deep', true)],
+    })
+
+    const fast = screen.getByRole('radio', { name: `Fast ${en.subagentModelSelectionDefault}` }) as HTMLInputElement
+    const deep = screen.getByRole('radio', { name: `Deep ${en.subagentModelSelectionDefault}` }) as HTMLInputElement
+    expect(fast.checked).toBe(false)
+    expect(deep.checked).toBe(true)
+
+    fireEvent.click(fast)
+    expect(actions.setDefaultModel).toHaveBeenCalledWith('alpha\0fast')
+    fireEvent.click(deep)
+    expect(actions.setDefaultModel).toHaveBeenCalledWith('alpha\0deep')
+  })
+
   function contextWindowCandidate(contextWindow?: number) {
     return {
       key: 'alpha\0fast',
@@ -164,6 +197,7 @@ describe('Subagent model selection fields', () => {
       ...contextWindow === undefined ? {} : { contextWindow },
       available: true,
       selected: true,
+      default: false,
     }
   }
 
@@ -288,6 +322,7 @@ describe('Subagent model selection fields', () => {
         efforts: [{ id: 'high', name: 'High' }],
         available: true,
         selected: true,
+        default: false,
       }],
     })
     const select = screen.getByRole('combobox', {
@@ -310,6 +345,7 @@ describe('Subagent model selection fields', () => {
         reasoningEffort: 'legacy-effort',
         available: true,
         selected: true,
+        default: false,
       }],
     })
     expect(screen.getByRole('option', { name: 'legacy-effort' })).toBeTruthy()
@@ -339,6 +375,7 @@ describe('Subagent model selection fields', () => {
         efforts: [],
         available: false,
         selected: true,
+        default: false,
       }],
     })
     expect(screen.getByText(en.subagentModelSelectionPartial)).toBeTruthy()

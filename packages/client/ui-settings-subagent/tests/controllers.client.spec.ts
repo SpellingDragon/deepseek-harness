@@ -82,18 +82,18 @@ describe('SubagentModelSelectionCardController', () => {
   it('joins stored routes with the live catalog without dropping unavailable choices', () => {
     const candidates = subagentModelCandidates(
       [{ id: 'alpha', name: 'Alpha API', models: [{ id: 'fast', name: 'Fast' }] }],
-      [{ provider: 'legacy', model: 'old' }],
+      [{ provider: 'legacy', model: 'old', default: true }],
       new Set(['legacy\0old']),
     )
 
     expect(candidates).toEqual([
       {
         key: 'alpha\0fast', provider: 'alpha', model: 'fast', providerName: 'Alpha API',
-        modelName: 'Fast', efforts: [], available: true, selected: false,
+        modelName: 'Fast', efforts: [], available: true, selected: false, default: false,
       },
       {
         key: 'legacy\0old', provider: 'legacy', model: 'old', providerName: 'legacy',
-        modelName: 'old', efforts: [], available: false, selected: true,
+        modelName: 'old', efforts: [], available: false, selected: true, default: true,
       },
     ])
   })
@@ -254,6 +254,117 @@ describe('SubagentModelSelectionCardController', () => {
     ], 8)
   })
 
+  it('stages one default route and clears it without dropping other staged values', async () => {
+    const host = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(host)
+    const models = modelsApi({
+      groups: [{
+        id: 'alpha',
+        name: 'Alpha API',
+        models: [{ id: 'fast', name: 'Fast' }, { id: 'deep', name: 'Deep' }],
+      }],
+    })
+    const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
+    host.publish({
+      status: 'ready', writable: true, revision: 9,
+      value: {
+        enabled: true,
+        allowedModels: [
+          { provider: 'alpha', model: 'fast' },
+          { provider: 'alpha', model: 'deep', reasoningEffort: 'high', contextWindow: 64_000 },
+        ],
+      },
+      user: {},
+    })
+    const face = controller.inject()
+    const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(2) })
+
+    face.setDefaultModel('missing')
+    expect(state().dirty).toBe(false)
+
+    face.setDefaultModel('alpha\0deep')
+    expect(state().dirty).toBe(true)
+    expect(state().candidates.find(candidate => candidate.key === 'alpha\0deep')?.default).toBe(true)
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [
+            { provider: 'alpha', model: 'fast' },
+            { provider: 'alpha', model: 'deep', reasoningEffort: 'high', contextWindow: 64_000, default: true },
+          ],
+        },
+      ], 9)
+    })
+
+    await vi.waitFor(() => { expect(state().dirty).toBe(false) })
+    face.setDefaultModel('alpha\0fast')
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenLastCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [
+            { provider: 'alpha', model: 'fast', default: true },
+            { provider: 'alpha', model: 'deep', reasoningEffort: 'high', contextWindow: 64_000 },
+          ],
+        },
+      ], 9)
+    })
+
+    await vi.waitFor(() => { expect(state().dirty).toBe(false) })
+    face.setDefaultModel('alpha\0fast')
+    face.save()
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenLastCalledWith([
+        { op: 'set', path: ['enabled'], value: true },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: [
+            { provider: 'alpha', model: 'fast' },
+            { provider: 'alpha', model: 'deep', reasoningEffort: 'high', contextWindow: 64_000 },
+          ],
+        },
+      ], 9)
+    })
+  })
+
+  it('ignores default-route writes without write permission or selection', async () => {
+    const host = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(host)
+    const models = modelsApi({
+      groups: [{
+        id: 'alpha',
+        name: 'Alpha API',
+        models: [{ id: 'fast', name: 'Fast' }, { id: 'deep', name: 'Deep' }],
+      }],
+    })
+    const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
+    const value = { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }
+    host.publish({ status: 'ready', writable: false, revision: 4, value, user: {} })
+    const face = controller.inject()
+    const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(2) })
+
+    face.setDefaultModel('alpha\0fast')
+    expect(state().dirty).toBe(false)
+
+    host.publish({ status: 'ready', writable: true, revision: 4, value, user: {} })
+    face.setDefaultModel('missing')
+    face.setDefaultModel('alpha\0deep')
+    expect(state().dirty).toBe(false)
+
+    face.setDefaultModel('alpha\0fast')
+    expect(state().dirty).toBe(true)
+  })
+
   it('preserves an existing effort and context window across staged edits', async () => {
     const host = stubConfigForm<SubagentModelSelectionSettings>()
     acceptWrites(host)
@@ -273,7 +384,7 @@ describe('SubagentModelSelectionCardController', () => {
       status: 'ready', writable: true, revision: 9,
       value: {
         enabled: true,
-        allowedModels: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'high', contextWindow: 64_000 }],
+        allowedModels: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'high', contextWindow: 64_000, default: true }],
       },
       user: {},
     })
@@ -290,7 +401,7 @@ describe('SubagentModelSelectionCardController', () => {
         {
           op: 'set',
           path: ['allowedModels'],
-          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'low', contextWindow: 32_000 }],
+          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'low', contextWindow: 32_000, default: true }],
         },
       ], 9)
     })
@@ -304,7 +415,7 @@ describe('SubagentModelSelectionCardController', () => {
         {
           op: 'set',
           path: ['allowedModels'],
-          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'low' }],
+          value: [{ provider: 'alpha', model: 'fast', reasoningEffort: 'low', default: true }],
         },
       ], 9)
     })

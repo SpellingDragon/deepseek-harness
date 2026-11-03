@@ -9,7 +9,7 @@ English | [中文](guide.zh.md)
 
 ## Change
 
-Saving the Subagent model-selection setting now updates every running Session, including child Sessions, and Sessions restored afterwards. Previously only Sessions created after the save used the new authorization. Each authorized model can also carry an optional default reasoning effort and a child-only context-window override. A Session log can now contain `subagent/model-selection-policy-change` and `agent/context-window` events, and authorized routes may carry `reasoningEffort` or `contextWindow`.
+Saving the Subagent model-selection setting now updates every running Session, including child Sessions, and Sessions restored afterwards. Previously only Sessions created after the save used the new authorization. Each authorized model can also carry an optional default reasoning effort and a child-only context-window override, and one authorized route may be marked as the delegation default. A Session log can now contain `subagent/model-selection-policy-change` and `agent/context-window` events, and authorized routes may carry `reasoningEffort`, `contextWindow`, or a `default` marker. A delegation call that selects no route now uses the marked default route instead of inheriting the parent route; tool-configured child options and an explicit route still take precedence.
 
 Older harness versions do not recognize that required event or the route effort/context-window fields and refuse to open an affected Session. Downgrade support is not provided.
 

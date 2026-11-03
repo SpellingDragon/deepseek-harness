@@ -16,6 +16,8 @@ export interface AllowedSubagentModel {
   reasoningEffort?: string
   /** Context-window override for this child route; omission uses adapter metadata. */
   contextWindow?: number
+  /** Whether children use this route when the caller selects none. */
+  default?: boolean
 }
 
 /** Settings fields stored for subagent model selection. */
@@ -40,6 +42,8 @@ export interface SubagentModelCandidate extends AllowedSubagentModel {
   available: boolean
   /** Whether the current draft authorizes this route. */
   selected: boolean
+  /** Whether children use this route when the caller selects none. */
+  default: boolean
 }
 
 /** State rendered by the staged allowlist card. */
@@ -72,6 +76,8 @@ export interface SubagentModelSelectionCardFace {
   setModelReasoningEffort: (key: string, effort: string | undefined) => void
   /** Stage one selected route's context-window override; undefined uses adapter metadata. */
   setModelContextWindow: (key: string, contextWindow: number | undefined) => void
+  /** Stage one authorized route as the child default, or clear the current default. */
+  setDefaultModel: (key: string) => void
   /** Retry the adapter directory. */
   retryCatalog: () => void
   /** Persist the switch and exact routes as one revision-fenced mutation. */
@@ -117,6 +123,7 @@ export function subagentModelCandidates(
       ...(storedRoute?.contextWindow === undefined ? {} : { contextWindow: storedRoute.contextWindow }),
       available: true,
       selected: selected.has(key),
+      default: storedRoute?.default === true,
     }
   }))
   for (const route of storedByKey.values()) {
@@ -129,19 +136,20 @@ export function subagentModelCandidates(
       efforts: [],
       available: false,
       selected: selected.has(key),
+      default: route.default === true,
     })
   }
   return candidates
 }
 
+function routeSignature(route: AllowedSubagentModel): string {
+  return `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}\0${route.default === true ? '1' : '0'}`
+}
+
 function sameRoutes(left: readonly AllowedSubagentModel[], right: readonly AllowedSubagentModel[]): boolean {
   if (left.length !== right.length) return false
-  const rightByKey = new Map(right.map(route => [
-    subagentModelKey(route),
-    `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`,
-  ]))
-  return left.every(route => rightByKey.get(subagentModelKey(route))
-    === `${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`)
+  const rightByKey = new Map(right.map(route => [subagentModelKey(route), routeSignature(route)]))
+  return left.every(route => rightByKey.get(subagentModelKey(route)) === routeSignature(route))
 }
 
 /** Bridges one configuration form and the live adapter directory onto a staged card. */
@@ -211,6 +219,7 @@ export class SubagentModelSelectionCardController {
       toggleModel: (key) => { this.toggleModel(key) },
       setModelReasoningEffort: (key, effort) => { this.setModelReasoningEffort(key, effort) },
       setModelContextWindow: (key, contextWindow) => { this.setModelContextWindow(key, contextWindow) },
+      setDefaultModel: (key) => { this.setDefaultModel(key) },
       retryCatalog: () => { void this.loadCatalog() },
       save: () => { void this.save() },
       discard: () => { this.discard() },
@@ -277,6 +286,7 @@ export class SubagentModelSelectionCardController {
       model: candidate.model,
       ...(effort === undefined ? {} : { reasoningEffort: effort }),
       ...(candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow }),
+      ...(candidate.default ? { default: true } : {}),
     })
     this.failed = false
     this.publish()
@@ -294,7 +304,32 @@ export class SubagentModelSelectionCardController {
       model: candidate.model,
       ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: candidate.reasoningEffort }),
       ...(contextWindow === undefined ? {} : { contextWindow }),
+      ...(candidate.default ? { default: true } : {}),
     })
+    this.failed = false
+    this.publish()
+  }
+
+  private setDefaultModel(key: string): void {
+    if (!this.enabled() || this.saving || !this.scope.getSnapshot().writable) return
+    const candidate = this.candidates().find(candidate => candidate.key === key)
+    if (candidate === undefined || !candidate.selected) return
+    const routes = this.beginDraft()
+    const next = !candidate.default
+    for (const [routeKey, route] of routes) {
+      if (route.default !== true) continue
+      const { default: _default, ...withoutDefault } = route
+      routes.set(routeKey, withoutDefault)
+    }
+    if (next) {
+      routes.set(key, {
+        provider: candidate.provider,
+        model: candidate.model,
+        ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: candidate.reasoningEffort }),
+        ...(candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow }),
+        default: true,
+      })
+    }
     this.failed = false
     this.publish()
   }
@@ -351,6 +386,7 @@ export class SubagentModelSelectionCardController {
           model: route.model,
           ...(route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort }),
           ...(route.contextWindow === undefined ? {} : { contextWindow: route.contextWindow }),
+          ...(route.default === true ? { default: true } : {}),
         })),
       },
     ], this.draftRevision)

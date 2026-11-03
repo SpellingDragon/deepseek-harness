@@ -15,9 +15,10 @@ declare module '@deepseek-ai/dsh-session/types' {
     /**
      * Records this Session’s initial authorized child provider/model routes.
      * Each route may carry default reasoning effort and context-window
-     * settings. Appended before the first model request when the Host
-     * preference is enabled. A later policy-change event supersedes it.
-     * Log-only: it carries no `surfaceOp` and never enters model history.
+     * settings, and at most one route may be marked as the child default.
+     * Appended before the first model request when the Host preference is
+     * enabled. A later policy-change event supersedes it. Log-only: it carries
+     * no `surfaceOp` and never enters model history.
      */
     'subagent/model-selection-policy': {
       /** Exact routes this Session may select explicitly for a child. */
@@ -35,7 +36,7 @@ declare module '@deepseek-ai/dsh-session/types' {
     'subagent/model-selection-policy-change': {
       /** Whether child model selection is enabled for this Session. */
       enabled: boolean
-      /** Current saved routes and their default efforts/windows; ignored unless `enabled` is true. */
+      /** Current saved routes with their default efforts, windows, and default marker; ignored unless `enabled` is true. */
       allowedModels: AllowedModelRoute[]
     }
   }
@@ -46,6 +47,7 @@ const modelSelectionPolicySchema = zod.array(zod.object({
   model: zod.string().min(1),
   reasoningEffort: zod.string().min(1).optional(),
   contextWindow: zod.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+  default: zod.boolean().optional(),
 }).strict()).min(1).nullable() as zod.ZodType<AllowedModelRoute[] | null>
 
 /**
@@ -54,7 +56,7 @@ const modelSelectionPolicySchema = zod.array(zod.object({
  */
 export const subagentModelSelectionProjectionDefinition = {
   key: 'subagentModelSelectionPolicy',
-  stateVersion: 3,
+  stateVersion: 4,
   stateSchema: modelSelectionPolicySchema,
   init: () => null,
   apply: (policy, event) => {

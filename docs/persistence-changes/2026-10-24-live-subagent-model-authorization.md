@@ -9,7 +9,7 @@ English | [中文](2026-10-24-live-subagent-model-authorization.zh.md)
 
 ## Summary
 
-Adds subagent/model-selection-policy-change and optional per-route default reasoning effort and context-window overrides on the subagent model-authorization events.
+Extends the subagent model-authorization events so one authorized route may be marked as the delegation default. A delegation that selects no route resolves that route and its authorized reasoning effort; the settings card can move or clear the mark, and the policy-change event carries it to live Sessions.
 
 ## Table of Contents
 
@@ -28,23 +28,23 @@ baseline: false
 changes:
   - root: "event:subagent/model-selection-policy"
     previous: "2026-09-11-initial"
-    after: "c44f40f7bb4c8c5ca95020d92993e2a72836fdcbc74512d2a0f748c372929984"
+    after: "569563b018835e438b9cc0ec6636cd706ab3f62f764e3e1cac4a205851bfa69f"
     decision: same-version
   - root: "event:subagent/model-selection-policy-change"
     previous: null
-    after: "47fc1fee10b0f02821d2abf2dd3965f039827887366cbc12a2b7e5d4de6b7556"
+    after: "d0edf7c555f57803e455504655902f83c697d2e2431d5b0431ce10cac9365551"
     decision: same-version
 ```
 
 <a id="compatibility"></a>
 ## Compatibility
 
-Existing logs without a change event or route effort/window keep their current meaning: the initial policy event remains authoritative and an omitted effort or window leaves the adapter default in charge. New readers fold the latest change event and apply a route's optional default effort when the caller omits one; the optional context-window override is applied by the host settings owner to live child Agents. Readers that meet the new required policy-change event, or the optional reasoningEffort/contextWindow fields inside an existing policy event, refuse to reconstruct that Session instead of silently applying stale authorization; no downgrade support is provided. The Session format version stays unchanged because the new discriminator and optional properties are distinguishable.
+Existing logs without the marker keep configured or parent inheritance, so the optional property preserves their meaning. New readers resolve the marked route only when a call selects no route; an explicit request and tool-configured child options still take precedence. The Session format version stays unchanged because the property is optional and the previous meaning remains valid.
 
 <a id="verification"></a>
 ## Verification
 
-corepack pnpm exec vitest run packages/subagent/tool-subagent/tests --coverage --coverage.include='packages/subagent/tool-subagent/src/**/*.ts': 8 files, 171 tests passed; 100% statements, branches, functions, and lines for the package sources. The projection and settings cases cover initial, enabled, disabled, malformed, live update, restore, unchanged-route, per-route effort and context-window folding, discovery, and executor-denial folding.
+Focused runs: packages/subagent/tool-subagent/tests — 8 files, 181 tests passed, 100% statements, branches, functions, and lines for the package sources; packages/client/ui-settings-subagent/tests — 3 files, 55 tests passed, 100% for src/client. Cases cover default-route resolution and precedence, the live policy-change marker, projection folding, and staged marker edits in the card.
 
 <a id="dev-note"></a>
 ## Dev Note

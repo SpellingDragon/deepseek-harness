@@ -15,6 +15,8 @@ export interface AllowedModelRoute {
   readonly reasoningEffort?: string
   /** Context-window override for this child route; omission uses adapter metadata. */
   readonly contextWindow?: number
+  /** Whether children use this route when the caller selects none; at most one route sets it. */
+  readonly default?: boolean
 }
 
 /** Schema shared by the Host setting and its deployment base. */
@@ -23,6 +25,7 @@ export const AllowedModelRouteSchema: z<AllowedModelRoute> = z.object({
   model: z.string().min(1).required(),
   reasoningEffort: z.string().min(1),
   contextWindow: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER),
+  default: z.boolean(),
 })
 
 /** Exact routes authorized for one Session. */
@@ -61,12 +64,13 @@ export function sameAllowedModelRoutes(
 }
 
 /**
- * Stable policy identity for one route, including its default effort.
- * @param route - Exact provider/model route and optional default effort.
+ * Stable policy identity for one route, including its default effort, window,
+ * and default-route marker.
+ * @param route - Exact provider/model route and its optional defaults.
  * @returns Opaque key for policy equality checks.
  */
 function modelRoutePolicyKey(route: AllowedModelRoute): string {
-  return `${modelRouteKey(route)}\0${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}`
+  return `${modelRouteKey(route)}\0${route.reasoningEffort ?? ''}\0${route.contextWindow ?? ''}\0${route.default === true ? '1' : '0'}`
 }
 
 /**
@@ -94,6 +98,7 @@ export function assertAllowedModelRoutes(routes: unknown): asserts routes is rea
     throw new Error('subagent model selection requires an array of routes')
   }
   const seen = new Set<string>()
+  let defaults = 0
   const candidates: readonly unknown[] = routes
   for (const candidate of candidates) {
     if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)
@@ -112,17 +117,45 @@ export function assertAllowedModelRoutes(routes: unknown): asserts routes is rea
       && (typeof contextWindow !== 'number' || !Number.isSafeInteger(contextWindow) || contextWindow <= 0)) {
       throw new Error('subagent model selection requires a positive safe-integer context window when provided')
     }
+    const isDefault = 'default' in candidate ? candidate.default : undefined
+    if (isDefault !== undefined && typeof isDefault !== 'boolean') {
+      throw new Error('subagent model selection requires a boolean default marker when provided')
+    }
+    if (isDefault === true) defaults++
+    if (defaults > 1) {
+      throw new Error('subagent model selection allows at most one default route')
+    }
     const route = {
       provider: candidate.provider,
       model: candidate.model,
       ...reasoningEffort === undefined ? {} : { reasoningEffort },
       ...contextWindow === undefined ? {} : { contextWindow },
+      ...isDefault === true ? { default: true } : {},
     }
     const key = modelRouteKey(route)
     if (seen.has(key)) {
       throw new Error(`subagent model selection repeats route "${route.provider}/${route.model}"`)
     }
     seen.add(key)
+  }
+}
+
+/**
+ * Resolve the route children use when the caller selects none.
+ * @param routes - Authorized exact routes, or undefined without a policy.
+ * @returns Child options for the single default route, or undefined when none is marked.
+ */
+export function defaultRouteChildOptions(
+  routes: readonly AllowedModelRoute[] | undefined,
+): AgentOptions | undefined {
+  const route = routes?.find(candidate => candidate.default === true)
+  if (route === undefined) return undefined
+  return {
+    provider: route.provider,
+    model: route.model,
+    ...route.reasoningEffort === undefined
+      ? {}
+      : { reasoningEffort: ReasoningEffortId(route.reasoningEffort) },
   }
 }
 

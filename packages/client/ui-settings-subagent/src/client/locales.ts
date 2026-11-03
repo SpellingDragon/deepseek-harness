@@ -16,6 +16,7 @@ export type SubagentSettingsLocaleKey =
   | 'subagentCapacityInvalid'
   | 'subagentModelSelectionTitle'
   | 'subagentModelSelectionToggle' | 'subagentModelSelectionChoose' | 'subagentModelSelectionAllowed'
+  | 'subagentModelSelectionDefault'
   | 'subagentModelSelectionEffort' | 'subagentModelSelectionEffortDefault'
   | 'subagentModelSelectionContextWindow'
   | 'subagentModelSelectionContextWindowDefault' | 'subagentModelSelectionContextWindow256k'
@@ -55,6 +56,7 @@ export const en: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionToggle: 'Allow agents to choose models for Subagents',
   subagentModelSelectionChoose: 'When enabled, agents can choose a provider, model, and reasoning effort for each Subagent from the authorized models below; each model may also set a context window. Changes apply immediately to running, restored, and new sessions.',
   subagentModelSelectionAllowed: 'Models agents may choose',
+  subagentModelSelectionDefault: 'Default',
   subagentModelSelectionEffort: 'Default reasoning effort',
   subagentModelSelectionEffortDefault: 'Model default',
   subagentModelSelectionContextWindow: 'Context window',
@@ -105,6 +107,7 @@ export const zh: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionToggle: '允许 Agent 为子智能体选择模型',
   subagentModelSelectionChoose: '开启后，Agent 可以从下方授权模型中，为每个子智能体选择提供方、模型和推理强度；每个模型还可以设置上下文窗口。更改会立即应用于运行中、已恢复和新创建的会话。',
   subagentModelSelectionAllowed: 'Agent 可选择的模型',
+  subagentModelSelectionDefault: '默认',
   subagentModelSelectionEffort: '默认推理强度',
   subagentModelSelectionEffortDefault: '模型默认',
   subagentModelSelectionContextWindow: '上下文窗口',
@@ -164,6 +167,7 @@ export const ja = {
   'subagentModelSelectionToggle': 'エージェントによるサブエージェントのモデル選択を許可',
   'subagentModelSelectionChoose': '有効にすると、エージェントは以下の許可されたモデルからサブエージェントごとにプロバイダー、モデル、推論強度を選択できます。各モデルにはコンテキストウィンドウも設定できます。変更は実行中、復元された、新しいセッションにすぐに適用されます。',
   'subagentModelSelectionAllowed': 'エージェントが選択可能なモデル',
+  'subagentModelSelectionDefault': 'デフォルト',
   'subagentModelSelectionEffort': 'デフォルトの推論強度',
   'subagentModelSelectionEffortDefault': 'モデルのデフォルト',
   'subagentModelSelectionContextWindow': 'コンテキストウィンドウ',
@@ -214,6 +218,7 @@ export const es = {
   subagentModelSelectionToggle: 'Permitir a los agentes elegir modelos para Subagentes',
   subagentModelSelectionChoose: 'Cuando está habilitado, los agentes pueden elegir un proveedor, modelo y esfuerzo de razonamiento para cada subagente entre los modelos autorizados a continuación; cada modelo también puede definir una ventana de contexto. Los cambios se aplican de inmediato a las sesiones en ejecución, restauradas y nuevas.',
   subagentModelSelectionAllowed: 'Los agentes modelos pueden elegir',
+  subagentModelSelectionDefault: 'Predeterminado',
   subagentModelSelectionEffort: 'Esfuerzo de razonamiento predeterminado',
   subagentModelSelectionEffortDefault: 'Predeterminado del modelo',
   subagentModelSelectionContextWindow: 'Ventana de contexto',
@@ -264,6 +269,7 @@ export const fr = {
   subagentModelSelectionToggle: 'Autoriser les agents à choisir des modèles pour les sous-agents',
   subagentModelSelectionChoose: "Lorsque cette option est activée, les agents peuvent choisir un fournisseur, un modèle et un effort de raisonnement pour chaque sous-agent parmi les modèles autorisés ci-dessous ; chaque modèle peut également définir une fenêtre de contexte. Les modifications s'appliquent immédiatement aux sessions en cours, restaurées et nouvelles.",
   subagentModelSelectionAllowed: 'Les agents modèles peuvent choisir',
+  subagentModelSelectionDefault: 'Par défaut',
   subagentModelSelectionEffort: 'Effort de raisonnement par défaut',
   subagentModelSelectionEffortDefault: 'Valeur par défaut du modèle',
   subagentModelSelectionContextWindow: 'Fenêtre de contexte',
@@ -314,6 +320,7 @@ export const de = {
   subagentModelSelectionToggle: 'Erlauben Sie Agenten, Modelle für Subagenten auszuwählen',
   subagentModelSelectionChoose: 'Wenn diese Option aktiviert ist, können Agenten aus den unten aufgeführten autorisierten Modellen einen Anbieter, ein Modell und einen Argumentationsaufwand für jeden Subagenten auswählen; jedes Modell kann außerdem ein Kontextfenster festlegen. Änderungen gelten sofort für laufende, wiederhergestellte und neue Sitzungen.',
   subagentModelSelectionAllowed: 'Modelagenten können wählen',
+  subagentModelSelectionDefault: 'Standard',
   subagentModelSelectionEffort: 'Standard-Argumentationsaufwand',
   subagentModelSelectionEffortDefault: 'Modellstandard',
   subagentModelSelectionContextWindow: 'Kontextfenster',
@@ -364,6 +371,7 @@ export const ru = {
   subagentModelSelectionToggle: 'Разрешить агентам выбирать модели для субагентов',
   subagentModelSelectionChoose: 'Если этот параметр включен, агенты могут выбирать поставщика, модель и усилия по обоснованию для каждого субагента из авторизованных моделей, указанных ниже; для каждой модели также можно задать контекстное окно. Изменения сразу применяются к текущим, восстановленным и новым сеансам.',
   subagentModelSelectionAllowed: 'Модели агенты могут выбирать',
+  subagentModelSelectionDefault: 'По умолчанию',
   subagentModelSelectionEffort: 'Усилия рассуждения по умолчанию',
   subagentModelSelectionEffortDefault: 'По умолчанию для модели',
   subagentModelSelectionContextWindow: 'Контекстное окно',
@@ -414,6 +422,7 @@ export const pt = {
   subagentModelSelectionToggle: 'Permitir que os agentes escolham modelos para subagentes',
   subagentModelSelectionChoose: 'Quando ativado, os agentes podem escolher um provedor, um modelo e um esforço de raciocínio para cada subagente dentre os modelos autorizados abaixo; cada modelo também pode definir uma janela de contexto. As alterações se aplicam imediatamente a sessões em execução, restauradas e novas.',
   subagentModelSelectionAllowed: 'Os agentes de modelos podem escolher',
+  subagentModelSelectionDefault: 'Padrão',
   subagentModelSelectionEffort: 'Esforço de raciocínio padrão',
   subagentModelSelectionEffortDefault: 'Padrão do modelo',
   subagentModelSelectionContextWindow: 'Janela de contexto',

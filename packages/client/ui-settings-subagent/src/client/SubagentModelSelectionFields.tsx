@@ -13,7 +13,7 @@ import css from './SubagentModelSelectionFields.module.css'
 /** Plain model state and callbacks supplied by the owning Subagent card. */
 export type SubagentModelSelectionFieldsProps = PropsLocale<'settings.subagent'>
   & Pick<SubagentModelSelectionCardFace,
-    'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'setModelContextWindow' | 'retryCatalog'>
+    'toggleEnabled' | 'toggleModel' | 'setModelReasoningEffort' | 'setModelContextWindow' | 'setDefaultModel' | 'retryCatalog'>
   & { state: SubagentModelSelectionCardState }
 
 const CONTEXT_WINDOW_UNIT = 1_048_576
@@ -179,6 +179,21 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
       {candidate.available && candidate.selected
         ? (
           <span className={css.modelControls}>
+            <span className={css.defaultControl}>
+              <input
+                type="radio"
+                name="subagent-model-selection-default"
+                checked={candidate.default}
+                aria-label={`${candidate.modelName} ${t('subagentModelSelectionDefault')}`}
+                disabled={!state.writable || state.saving}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (candidate.default) props.setDefaultModel(candidate.key)
+                }}
+                onChange={() => { props.setDefaultModel(candidate.key) }}
+              />
+              <span>{t('subagentModelSelectionDefault')}</span>
+            </span>
             {candidate.efforts.length > 0
               ? (
                 <select

@@ -16,9 +16,13 @@ The Host settings service writes the change event to every live Agent when the V
 
 Each authorized route also carries an optional default `reasoningEffort` and an optional `contextWindow`. When a delegation call omits `reasoning_effort` and its effective route matches an authorized route, the executor uses that route's default effort; an explicit model value still wins. The settings service appends a log-only `agent/context-window` event when the authorized route's window changes; the agent loop and compaction read the host projection, so request metadata and budgeting use the new capacity without recreating the Agent. It is not copied into `AgentOptions`. Top-level Agents are excluded. This is a default/budget override, not an allowlist: every effort the adapter advertises for the route remains selectable, and the adapter still enforces its own request limits. Only in-process children whose Agent the Host owns receive the live window; out-of-process providers such as the DSH SDK keep their own runtime capacity.
 
+The settings document may also mark one authorized route as the delegation default. When a call supplies no route, the executor resolves that route and its authorized effort, layering it above provider route defaults and the preset's configured child options, and below an explicit request. A provider that does not advertise `agentOptions` keeps its own runtime route, and without a marked route children keep inheriting configured and parent values.
+
 Discovery and delegation continue to read the Session projection. They do not read the settings document on each call, so every authority change remains in the Session log and a restored Session replays the same sequence of decisions. Settings, discovery, and execution still share one package-local authorization definition.
 
 ## Alternatives considered
+
+**Require the model to select the authorized route on every delegation.** Rejected because the model reasonably keeps inheriting its own route, so a saved authorization stays unused and the configured effort and window never apply. A settings-owned default route makes the saved route effective without depending on per-call model behavior.
 
 **Read current settings on every discovery or delegation call.** Rejected because the authority a Session used would depend on ambient process state rather than its durable log. The earlier rejection of this design remains: live updates are recorded decisions, not per-call settings reads.
 
@@ -48,6 +52,7 @@ Discovery and delegation continue to read the Session projection. They do not re
 - A route's context window is a child-only budget override recorded as a log-only `agent/context-window` event on in-process children. The loop and compaction read the projection, and `request/context` records the effective value; it does not enlarge the adapter's actual capacity, so an override above the adapter limit can still fail at request time. Top-level Agents keep adapter metadata, and out-of-process children keep their own runtime capacity.
 - Live child Agents receive the current override on creation, model changes, resume, and settings changes; no process restart is required. Removing a route's window returns the child to adapter metadata; disabling model selection or removing the route leaves a running child's current window unchanged.
 - An older harness version meeting the new required event refuses to reconstruct that Session instead of silently applying stale authority. No downgrade support is provided. New readers preserve old logs because an absent change event leaves the initial event authoritative.
+- A marked default route applies to delegations that select no route; its change reaches live Sessions through the policy-change event, so the next delegation uses it without a restart. Running children keep their current route, and an explicit route or preset-configured child options still win.
 - Discovery and execution keep reading the shared projection, so the authorization path has one source and one enforcement point.
 - Tests cover live top-level and child updates, restored Sessions, unchanged route sets, per-route default-effort and context-window changes, discovery results, executor denial, and compaction using the live override.
 

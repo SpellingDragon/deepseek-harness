@@ -543,6 +543,26 @@ describe('SubagentModelSelectionConfig', () => {
     await ctx.fiber.dispose()
   })
 
+  it('propagates the default-route marker without restarting', async () => {
+    const ctx = await boot()
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: ALLOWED_MODELS })
+    const agent = await createAgent(ctx, 'default-route-policy')
+    const policy = await ctx.sessionProjections.register(subagentModelSelectionProjectionDefinition)
+    const changes = () => agent.session.snapshotEvents()
+      .filter(event => event.type === 'subagent/model-selection-policy-change')
+    expect(changes()).toHaveLength(0)
+
+    const withDefault = [{ provider: 'alpha', model: 'fast-model', default: true }]
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: withDefault })
+    expect(subagentModelSelectionPolicy(policy, agent.session)).toEqual(withDefault)
+    expect(changes()).toHaveLength(1)
+
+    await selectionConfigs.get(ctx)!.update({ enabled: true, allowedModels: ALLOWED_MODELS })
+    expect(subagentModelSelectionPolicy(policy, agent.session)).toEqual(ALLOWED_MODELS)
+    expect(changes()).toHaveLength(2)
+    await ctx.fiber.dispose()
+  })
+
   it('ignores unrelated volatile paths and records nothing while disabled', async () => {
     const ctx = await boot()
     const agent = await createAgent(ctx, 'disabled-policy')

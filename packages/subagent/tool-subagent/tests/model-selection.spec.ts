@@ -19,6 +19,7 @@ import {
   applyAllowedRouteDefaultEffort,
   assertAllowedModelRoutes,
   assertAllowedModelSelection,
+  defaultRouteChildOptions,
   preflightChildLlmRoute,
   sameAllowedModelRoutes,
 } from '../src/model-selection.ts'
@@ -115,6 +116,31 @@ describe('dsh-tool-subagent model selection', () => {
       { provider: 'alpha', model: 'fast-model' },
     )).toEqual({ provider: 'alpha', model: 'fast-model' })
     expect(applyAllowedRouteDefaultEffort(undefined, parent, undefined)).toBeUndefined()
+  })
+
+  it('validates one default marker and resolves it as child options', () => {
+    expect(() => {
+      assertAllowedModelRoutes([
+        { provider: 'alpha', model: 'fast-model', default: true },
+        { provider: 'beta', model: 'slow-model', default: true },
+      ])
+    }).toThrow('at most one default route')
+    const malformed: unknown = [{ provider: 'alpha', model: 'fast-model', default: 'yes' }]
+    expect(() => { assertAllowedModelRoutes(malformed) }).toThrow('boolean default marker')
+
+    const routes = [
+      { provider: 'alpha', model: 'fast-model' },
+      { provider: 'beta', model: 'slow-model', reasoningEffort: 'low', default: true },
+    ]
+    expect(defaultRouteChildOptions(routes)).toEqual({
+      provider: 'beta', model: 'slow-model', reasoningEffort: ReasoningEffortId('low'),
+    })
+    expect(defaultRouteChildOptions([{ provider: 'alpha', model: 'fast-model' }])).toBeUndefined()
+    expect(defaultRouteChildOptions(undefined)).toBeUndefined()
+    expect(sameAllowedModelRoutes(
+      [{ provider: 'alpha', model: 'fast-model' }],
+      [{ provider: 'alpha', model: 'fast-model', default: true }],
+    )).toBe(false)
   })
 
   it('allows pure inheritance but rejects explicit values outside a Session allowlist', () => {
@@ -630,6 +656,50 @@ describe('dsh-tool-subagent model selection', () => {
     expect(explicit.isError, text(explicit)).toBe(false)
     expect(requests[1]?.agentOptions).toMatchObject({ reasoningEffort: ReasoningEffortId('low') })
     expect(requests[1]?.agentOptions).not.toHaveProperty('contextWindow')
+  })
+
+  it('uses the settings default route when a call selects nothing', async () => {
+    const requests: SubagentStartRequest[] = []
+    const ctx = await setup({
+      provider: 'mock',
+      withModelSelection: true,
+      hostAllowedModels: [
+        { provider: 'alpha', model: 'fast-model' },
+        { provider: 'beta', model: 'slow-model', reasoningEffort: 'low', default: true },
+      ],
+      parentAgentOptions: { provider: 'alpha', model: 'parent-model' },
+    }, { onStart: (request) => { requests.push(request) } })
+    ctx.llm.registerAdapter(['alpha', 'beta'], new MockAdapter([], REASONING))
+    const agent = modelSelectionSetupAgent(ctx)
+
+    const inherited = await callSubagent(ctx, { description: 'default route', prompt: 'do it' }, { agent })
+    expect(inherited.isError, text(inherited)).toBe(false)
+    expect(requests[0]?.agentOptions).toMatchObject({
+      provider: 'beta', model: 'slow-model', reasoningEffort: ReasoningEffortId('low'),
+    })
+
+    const explicit = await callSubagent(ctx, {
+      description: 'explicit route', prompt: 'do it', provider: 'alpha', model: 'fast-model',
+    }, { agent })
+    expect(explicit.isError, text(explicit)).toBe(false)
+    expect(requests[1]?.agentOptions).toMatchObject({ provider: 'alpha', model: 'fast-model' })
+    expect(requests[1]?.agentOptions).not.toHaveProperty('reasoningEffort')
+  })
+
+  it('lets tool-configured child options override the settings default route', async () => {
+    const requests: SubagentStartRequest[] = []
+    const ctx = await setup({
+      provider: 'mock',
+      withModelSelection: true,
+      hostAllowedModels: [{ provider: 'beta', model: 'slow-model', default: true }],
+      agentOptions: { provider: 'alpha', model: 'configured-model' },
+    }, { onStart: (request) => { requests.push(request) } })
+    ctx.llm.registerAdapter(['alpha', 'beta'], new MockAdapter([], REASONING))
+    const agent = modelSelectionSetupAgent(ctx)
+
+    const result = await callSubagent(ctx, { description: 'configured route', prompt: 'do it' }, { agent })
+    expect(result.isError, text(result)).toBe(false)
+    expect(requests[0]?.agentOptions).toMatchObject({ provider: 'alpha', model: 'configured-model' })
   })
 
   it('enforces Session authorization when a fork tool explicitly enables model selection', async () => {
