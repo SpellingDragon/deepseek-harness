@@ -1,6 +1,6 @@
 /** User control for model-selectable subagent delegation in new sessions. */
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
@@ -144,6 +144,7 @@ function ContextWindowControl(props: {
  */
 export function SubagentModelSelectionFields(props: SubagentModelSelectionFieldsProps) {
   const { t, state } = props
+  const defaultGroupName = useId()
   const availableGroups = new Map<string, {
     providerName: string
     candidates: SubagentModelCandidate[]
@@ -182,7 +183,7 @@ export function SubagentModelSelectionFields(props: SubagentModelSelectionFields
             <span className={css.defaultControl}>
               <input
                 type="radio"
-                name="subagent-model-selection-default"
+                name={`${defaultGroupName}-default`}
                 checked={candidate.default}
                 aria-label={`${candidate.modelName} ${t('subagentModelSelectionDefault')}`}
                 disabled={!state.writable || state.saving}

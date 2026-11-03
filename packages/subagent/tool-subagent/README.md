@@ -244,6 +244,7 @@ These limits define what this tool does not return or enforce; they are current 
 - **Shipped fork tools omit model selection** — their configuration leaves `modelSelection` disabled to preserve inherited-prefix reuse. Custom fork tools may enable it under the same Session authorization and adapter validation as other delegation tools.
 - **Depth caps are fixed per instance** — another cap requires another distinctly named tool. Child personas and tools belong to the selected Agent Preset. Explicit LLM selection requires `modelSelection` and is restricted to the Session’s authorized routes, or the current parent route without an enabled policy. A marked default route applies only to backends that advertise `agentOptions`; other backends keep their own runtime route. An authorized context window is a child-only budget override; it does not enlarge the adapter’s real capacity, so a value above the adapter limit can still fail at request time.
 - **Live context windows are host-owned** — the settings service appends `agent/context-window` events only for in-process children whose Session the Host owns. Children started by an out-of-process provider such as the DSH SDK keep their own runtime’s capacity configuration; the Host setting does not cross that process boundary.
+- **A marked default route also reaches context-sharing fork children** — they keep the inherited conversation, but switching away from the parent route prevents provider-side reuse of the cached prefix.
 
 <a id="dev-note"></a>
 ### Dev Note

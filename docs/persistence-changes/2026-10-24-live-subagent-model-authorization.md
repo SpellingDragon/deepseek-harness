@@ -39,7 +39,7 @@ changes:
 <a id="compatibility"></a>
 ## Compatibility
 
-Existing logs without the marker keep configured or parent inheritance, so the optional property preserves their meaning. New readers resolve the marked route only when a call selects no route; an explicit request and tool-configured child options still take precedence. The Session format version stays unchanged because the property is optional and the previous meaning remains valid.
+Existing logs without the change event or the route’s optional effort, window, or default marker keep their current meaning: the initial policy event remains authoritative, an omitted effort or window leaves the adapter or child default in charge, and no route is treated as the delegation default. New readers fold the latest change event, apply a route’s default effort when the caller omits one, and resolve a marked default route for delegations that select none. Readers that meet the new required policy-change event, or the optional `reasoningEffort`, `contextWindow`, or `default` properties inside an existing policy event, refuse to reconstruct that Session instead of silently applying stale authorization; no downgrade support is provided. The Session format version stays unchanged because the new discriminator and optional properties are distinguishable.
 
 <a id="verification"></a>
 ## Verification

@@ -339,7 +339,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       throw new TargetPressureConfigError(
         targetKey,
         `compaction-basic: no context capacity for ${targetKey}; `
-        + 'configure contextWindow on that adapter model or Agent options',
+        + 'configure a context window on that adapter model or on the subagent model route',
       )
     }
     const spec = resolveCompactSpec(

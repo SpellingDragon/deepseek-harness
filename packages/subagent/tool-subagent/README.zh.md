@@ -244,6 +244,7 @@ Delegation depth for `subagent`: current 1, maximum 1, remaining levels 0. Do no
 - **随附 fork 工具省略模型选择**：其配置保持 `modelSelection` 关闭，以保留对继承前缀的复用。自定义 fork 工具可以启用它，并接受与其他委派工具相同的 Session 授权和适配器校验。
 - **深度上限按实例固定** — 更换上限需要另一个不同名称的工具。子级角色和工具由所选 Agent Preset 配置。显式 LLM 选择需要 `modelSelection`，并受 Session 授权路由限制，没有启用策略时只允许当前父级路由。标记的默认路由只对公布 `agentOptions` 的后端生效；其他后端保持各自的运行时路由。获准上下文窗口是仅作用于子级的预算覆盖；它不会扩大适配器的真实容量，因此高于适配器上限的值仍可能在请求时失败。
 - **实时上下文窗口由 Host 托管**：设置服务只为 Host 直接托管的进程内子 Session 追加 `agent/context-window` 事件。由 DSH SDK 等出进程提供方启动的子级使用各自运行时的容量配置，Host 设置不会跨进程传递。
+- **标记的默认路由同样作用于共享上下文的 fork 子级**：它们保留继承的对话，但从父级路由切走会使提供方无法复用已缓存的前缀。
 
 <a id="dev-note"></a>
 ### 开发备注
