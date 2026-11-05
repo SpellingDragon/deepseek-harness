@@ -70,6 +70,8 @@ class CatalogAdapter extends LlmAdapter {
 
 const callingAgents = new WeakMap<Context, Agent>()
 
+const AUTHORIZED_PROVIDERS_NOTE = 'Only the providers above can be used for Subagents in this Session; other registered providers are not authorized.'
+
 async function setupListTool(routes: readonly AllowedModelRoute[] = [
   { provider: 'alpha', model: 'fast' },
   { provider: 'alpha', model: 'plain' },
@@ -219,7 +221,7 @@ describe('list_subagent_models', () => {
       name: 'list_subagent_models', arguments: {}, agent: modelSelectionSetupAgent(ctx),
     })
     expect(result.isError).toBe(false)
-    expect(text(result)).toBe('alpha — ALPHA API')
+    expect(text(result)).toBe(`alpha — ALPHA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
   })
 
   it('stays registered without the LLM service and rejects discovery calls', async () => {
@@ -249,11 +251,11 @@ describe('list_subagent_models', () => {
     const registration = ctx.llm.registerAdapter(['alpha'], new CatalogAdapter())
     const providers = await call(ctx, {})
     expect(providers.isError).toBe(false)
-    expect(text(providers)).toBe('alpha — ALPHA API')
+    expect(text(providers)).toBe(`alpha — ALPHA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
 
     registration.replace(['beta'])
     const changed = await call(ctx, {})
-    expect(text(changed)).toBe('beta — BETA API')
+    expect(text(changed)).toBe(`beta — BETA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
 
     const tools = ctx.tools
     await ctx.fiber.dispose()
@@ -272,7 +274,7 @@ describe('list_subagent_models', () => {
     const ctx = await setupAllowedListTool()
     ctx.llm.registerAdapter(['alpha', 'beta'], new CatalogAdapter())
 
-    expect(text(await call(ctx, {}))).toBe('alpha — ALPHA API')
+    expect(text(await call(ctx, {}))).toBe(`alpha — ALPHA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
     expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/fast — Fast: Focused work.')
     expect(text(await call(ctx, { provider: 'alpha', model: 'unlisted' })))
       .toContain('alpha/unlisted — Fast')

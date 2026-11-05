@@ -330,6 +330,7 @@ describe('dsh-tool-subagent model selection', () => {
       arguments: args, agent: parent, signal: new AbortController().signal,
     })
     expect(text(await discover({}))).toContain('alpha')
+    expect(text(await discover({}))).toContain('Only your current provider can be used for Subagents in this Session.')
     expect(text(await discover({}))).not.toContain('other-provider')
     expect(text(await discover({ provider: 'alpha' }))).toContain('alpha/parent-model')
     expect(text(await discover({ provider: 'alpha', model: 'parent-model' }))).toContain('low')

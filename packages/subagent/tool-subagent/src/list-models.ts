@@ -65,9 +65,12 @@ async function listSubagentModels(
   if (request.provider === undefined) {
     const providers = llm.listProviders()
       .filter(provider => policy.routes.some(route => route.provider === provider.id))
-    return providers.length === 0
-      ? '(no LLM providers)'
-      : providers.map(provider => `${provider.id} — ${provider.name}`).join('\n')
+    if (providers.length === 0) return '(no LLM providers)'
+    // A filtered list otherwise reads as the full catalog, so state its scope.
+    return providers.map(provider => `${provider.id} — ${provider.name}`).join('\n')
+      + `\n\n${selectionEnabled
+        ? 'Only the providers above can be used for Subagents in this Session; other registered providers are not authorized.'
+        : 'Only your current provider can be used for Subagents in this Session.'}`
   }
   if (request.provider.length === 0) throw new Error('`provider` must be non-empty')
   const allowedRoutes = policy.routes.filter(route => route.provider === request.provider)
