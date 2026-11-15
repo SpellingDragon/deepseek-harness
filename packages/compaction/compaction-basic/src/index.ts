@@ -12,6 +12,7 @@ import type { EpochHeader, Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 import { CONTEXT_WINDOW_EXCEEDED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
+import { agentContextWindowOf, agentContextWindowProjectionDefinition } from '@deepseek-ai/dsh-agent'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/types'
 // Type-only: makes the optional sibling service available to `ctx.get()`.
@@ -139,12 +140,14 @@ export class BasicCompactionEngine extends CompactionEngine {
   private readonly warnedPressureConfigTargets = new Set<string>()
   private readonly overflowRetries = new WeakMap<Agent, number>()
   private readonly overflowAgents = new WeakMap<Session, Agent>()
+  private readonly contextWindowProjectionReady: Promise<ProjectionHandle<number | null>>
   /** Registered at construction; `summarize()` awaits it, so no read precedes readiness. */
   private readonly answeredRoute: Promise<ProjectionHandle<AnsweredRoute>>
 
   constructor(ctx: Context, config: BasicCompactionConfig = {}) {
     super(ctx)
     this.config = resolveConfig(config)
+    this.contextWindowProjectionReady = this.ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
     this.answeredRoute = this.ctx.sessionProjections.register(answeredRouteProjectionDefinition)
     if (this.config.auto) this._registerAutomaticCompaction()
   }
@@ -345,16 +348,20 @@ export class BasicCompactionEngine extends CompactionEngine {
     const info = await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)
     assertNoActiveCompaction(agent.session, 'automatic pressure compaction')
     const targetKey = `${target.provider}/${target.model}`
-    if (info.context === undefined) {
+    const contextWindow = agentContextWindowOf(
+      await this.contextWindowProjectionReady,
+      agent.session,
+    ) ?? info.context?.contextWindow
+    if (contextWindow === undefined) {
       throw new TargetPressureConfigError(
         targetKey,
         `compaction-basic: no context capacity for ${targetKey}; `
-        + 'configure contextWindow on that adapter model',
+        + 'configure a context window on that adapter model or on the subagent model route',
       )
     }
     const spec = resolveCompactSpec(
       policy,
-      info.context.contextWindow,
+      contextWindow,
       reservedCompletionTokens(header, info.defaultMaxTokens),
     )
     if (measurement.totalTokens < spec.thresholdTokens) return null

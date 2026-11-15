@@ -256,6 +256,13 @@ describe('maintained repository reference policy', () => {
     ])
   })
 
+  it('excludes generated lockfiles from maintained reference scanning', () => {
+    const size = '0'.repeat(7)
+    const commits = new Set([size])
+    expect(findRepositoryReferences('pnpm-lock.yaml', `size = ${size}`, commits)).toEqual([])
+    expect(findRepositoryReferences('python/sdk/uv.lock', `size = ${size}`, commits)).toEqual([])
+  })
+
   it('rejects literal, encoded, escaped, case-varied, and compatibility forms of the organization URL', () => {
     const fullwidth = organizationUrl.split('').map(character =>
       String.fromCodePoint(character.charCodeAt(0) + 0xfee0)).join('')

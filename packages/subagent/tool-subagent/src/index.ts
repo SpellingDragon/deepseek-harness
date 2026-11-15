@@ -22,6 +22,8 @@ import {
 } from '@deepseek-ai/dsh-subagent'
 import type { SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import {
+  applyAllowedRouteDefaultEffort,
+  defaultRouteChildOptions,
   hasConfiguredLlmSelection,
   hasDelegationModelRequest,
   preflightChildLlmRoute,
@@ -284,18 +286,32 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
         const agentPreset = presets.resolve(args as PresetSelectionRequest)
         const modelRequest = args as DelegationModelRequest
         const parentOptions = parentAgentOptionsForDelegation(parent)
-        const requiresRoutePreflight = hasDelegationModelRequest(modelRequest)
-          || hasConfiguredLlmSelection(config.agentOptions)
-        const configuredChildAgentOptions = requiresRoutePreflight && providerRouteDefaults !== undefined
-          ? { ...providerRouteDefaults, ...config.agentOptions }
-          : config.agentOptions
-        const requestedChildAgentOptions = requestedAgentOptions(
-          configuredChildAgentOptions,
-          modelRequest,
-          modelSelectionEnabled,
-          modelSelectionPolicy,
+        // A provider without child agentOptions (for example ACP) keeps its own
+        // runtime route, so the user default cannot apply there.
+        const settingsChildAgentOptions = subagentProvider.capabilities.agentOptions
+          ? defaultRouteChildOptions(routes)
+          : undefined
+        const mergedChildAgentOptions = settingsChildAgentOptions === undefined || config.agentOptions === undefined
+          ? config.agentOptions ?? settingsChildAgentOptions
+          : { ...settingsChildAgentOptions, ...config.agentOptions }
+        const requiresConfiguredPreflight = hasDelegationModelRequest(modelRequest)
+          || hasConfiguredLlmSelection(mergedChildAgentOptions)
+        const configuredChildAgentOptions = requiresConfiguredPreflight && providerRouteDefaults !== undefined
+          ? { ...providerRouteDefaults, ...mergedChildAgentOptions }
+          : mergedChildAgentOptions
+        const requestedChildAgentOptions = applyAllowedRouteDefaultEffort(
+          routes,
           parentOptions,
+          requestedAgentOptions(
+            configuredChildAgentOptions,
+            modelRequest,
+            modelSelectionEnabled,
+            modelSelectionPolicy,
+            parentOptions,
+          ),
         )
+        const requiresRoutePreflight = requiresConfiguredPreflight
+          || hasConfiguredLlmSelection(requestedChildAgentOptions)
         if (requiresRoutePreflight) {
           const llm = ctx.get('llm')
           if (llm === undefined) {

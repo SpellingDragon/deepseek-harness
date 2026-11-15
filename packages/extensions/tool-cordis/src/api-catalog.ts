@@ -3963,8 +3963,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'subagentModelSelection',
-    summary: 'Host settings owner that records Session authorization before the first model request.',
-    description: 'Host settings owner that records Session authorization before the first model request.',
+    summary: 'Host settings owner that keeps each Session\'s recorded authorization aligned with the current preference.',
+    description: 'Host settings owner that keeps each Session\'s recorded authorization aligned with the current preference. A route marked `default` resolves delegations that select no route before falling back to configured or parent values.',
     methods: [],
   },
   {

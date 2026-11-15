@@ -1,0 +1,22 @@
+{
+  "formatVersion": 2,
+  "roots": [
+    {"key":"event:subagent/model-selection-policy","kind":"event","event":"subagent/model-selection-policy","surface":false,"digest":"569563b018835e438b9cc0ec6636cd706ab3f62f764e3e1cac4a205851bfa69f"},
+    {"key":"event:subagent/model-selection-policy-change","kind":"event","event":"subagent/model-selection-policy-change","surface":false,"digest":"d0edf7c555f57803e455504655902f83c697d2e2431d5b0431ce10cac9365551"}
+  ],
+  "types": [],
+  "nodes": {
+    "0657d3ca5ac4e7bf": {"kind":"primitive","type":"number"},
+    "0a8a062bc9c3c0d9": {"kind":"literal","value":"subagent/model-selection-policy"},
+    "2a4d86f7a04146ec": {"kind":"object","properties":[{"name":"allowedModels","type":"8a8dd7699fc211f0","optional":false},{"name":"enabled","type":"aa93010d0e521ad7","optional":false}],"indices":[]},
+    "318a35ec8fd5ec71": {"kind":"literal","value":"subagent/model-selection-policy-change"},
+    "4cd48f3e5108bd6e": {"kind":"primitive","type":"string"},
+    "569563b018835e43": {"kind":"object","properties":[{"name":"data","type":"cdbf036b366d4911","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"0a8a062bc9c3c0d9","optional":false}],"indices":[]},
+    "8a8dd7699fc211f0": {"kind":"array","element":"b0ed53029c37e4d3"},
+    "aa93010d0e521ad7": {"kind":"primitive","type":"boolean"},
+    "b0ed53029c37e4d3": {"kind":"object","properties":[{"name":"contextWindow","type":"0657d3ca5ac4e7bf","optional":true},{"name":"default","type":"aa93010d0e521ad7","optional":true},{"name":"model","type":"4cd48f3e5108bd6e","optional":false},{"name":"provider","type":"4cd48f3e5108bd6e","optional":false},{"name":"reasoningEffort","type":"4cd48f3e5108bd6e","optional":true}],"indices":[]},
+    "cdbf036b366d4911": {"kind":"object","properties":[{"name":"allowedModels","type":"8a8dd7699fc211f0","optional":false}],"indices":[]},
+    "d0edf7c555f57803": {"kind":"object","properties":[{"name":"data","type":"2a4d86f7a04146ec","optional":false},{"name":"ignorable","type":"dacf3d5f3e4ff619","optional":true},{"name":"seq","type":"0657d3ca5ac4e7bf","optional":false},{"name":"time","type":"0657d3ca5ac4e7bf","optional":false},{"name":"type","type":"318a35ec8fd5ec71","optional":false}],"indices":[]},
+    "dacf3d5f3e4ff619": {"kind":"literal","value":true}
+  }
+}

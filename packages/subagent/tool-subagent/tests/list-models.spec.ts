@@ -23,6 +23,8 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import SubagentModelSelectionConfig from '../src/model-selection-settings.ts'
+import type { AllowedModelRoute } from '../src/model-selection.ts'
+import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import { modelSelectionSetupAgent, ownContext, setup, testToolSignal, text } from './harness.ts'
 import { brandString } from '@deepseek-ai/dsh-brand'
 
@@ -67,7 +69,9 @@ class CatalogAdapter extends LlmAdapter {
 
 const callingAgents = new WeakMap<Context, Agent>()
 
-async function setupListTool(routes = [
+const AUTHORIZED_PROVIDERS_NOTE = 'Only the providers above can be used for Subagents in this Session; other registered providers are not authorized.'
+
+async function setupListTool(routes: readonly AllowedModelRoute[] = [
   { provider: 'alpha', model: 'fast' },
   { provider: 'alpha', model: 'plain' },
   { provider: 'beta', model: 'fast' },
@@ -76,7 +80,7 @@ async function setupListTool(routes = [
   const ctx = ownContext(new Context())
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(SubagentModelSelectionConfig, { enabled: true, allowedModels: routes })
+  await ctx.plugin(SubagentModelSelectionConfig, { enabled: true, allowedModels: [...routes] })
   await mountWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(tool, { provider: 'unused', modelDiscovery: true })
@@ -91,6 +95,25 @@ async function setupAllowedListTool() {
     { provider: 'alpha', model: 'unlisted' },
     { provider: 'missing', model: 'hidden' },
   ])
+}
+
+async function setupLiveListTool() {
+  const ctx = ownContext(new Context())
+  await mountAgentLoopTestDependencies(ctx)
+  await ctx.plugin(AgentLoop, { agents: [] })
+  const settings = await liveConfig(ctx, SubagentModelSelectionConfig, {
+    enabled: true,
+    allowedModels: [{ provider: 'alpha', model: 'fast' }],
+  })
+  await mountWorkingDirectoryFixture(ctx)
+  await ctx.plugin(SubagentRuntime)
+  await ctx.plugin(tool, { provider: 'unused', modelDiscovery: true })
+  const { agent } = await ctx.agents.create({
+    sessionId: brandString<SessionId>('live-discovery-parent'),
+    agentOptions: { provider: 'alpha', model: 'plain' },
+  })
+  callingAgents.set(ctx, agent)
+  return { ctx, settings }
 }
 
 let counter = 0
@@ -201,7 +224,7 @@ describe('list_subagent_models', () => {
       name: 'list_subagent_models', arguments: {}, agent: modelSelectionSetupAgent(ctx),
     })
     expect(result.isError).toBe(false)
-    expect(text(result)).toBe('alpha — ALPHA API')
+    expect(text(result)).toBe(`alpha — ALPHA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
   })
 
   it('stays registered without the LLM service and rejects discovery calls', async () => {
@@ -232,11 +255,11 @@ describe('list_subagent_models', () => {
     const registration = ctx.llm.registerAdapter(['alpha'], new CatalogAdapter())
     const providers = await call(ctx, {})
     expect(providers.isError).toBe(false)
-    expect(text(providers)).toBe('alpha — ALPHA API')
+    expect(text(providers)).toBe(`alpha — ALPHA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
 
     registration.replace(['beta'])
     const changed = await call(ctx, {})
-    expect(text(changed)).toBe('beta — BETA API')
+    expect(text(changed)).toBe(`beta — BETA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
 
     const tools = ctx.tools
     await ctx.fiber.dispose()
@@ -255,7 +278,7 @@ describe('list_subagent_models', () => {
     const ctx = await setupAllowedListTool()
     ctx.llm.registerAdapter(['alpha', 'beta'], new CatalogAdapter())
 
-    expect(text(await call(ctx, {}))).toBe('alpha — ALPHA API')
+    expect(text(await call(ctx, {}))).toBe(`alpha — ALPHA API\n\n${AUTHORIZED_PROVIDERS_NOTE}`)
     expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/fast — Fast: Focused work.')
     expect(text(await call(ctx, { provider: 'alpha', model: 'unlisted' })))
       .toContain('alpha/unlisted — Fast')
@@ -264,6 +287,25 @@ describe('list_subagent_models', () => {
     expect(denied.isError).toBe(true)
     expect(text(denied)).toContain('is not allowed for this Session')
     expect(denied.error?.info).toEqual({ name: 'SubagentError', code: 'MODEL_ROUTE_NOT_ALLOWED' })
+  })
+
+  it('follows preference changes for the calling Session', async () => {
+    const { ctx, settings } = await setupLiveListTool()
+    ctx.llm.registerAdapter(['alpha', 'beta'], new CatalogAdapter())
+
+    expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/fast — Fast: Focused work.')
+    expect(text(await call(ctx, { provider: 'alpha', model: 'fast' }))).toContain('alpha/fast — Fast')
+
+    await settings.update({ allowedModels: [{ provider: 'alpha', model: 'plain' }] })
+    expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/plain — Plain')
+    const removed = await call(ctx, { provider: 'alpha', model: 'fast' })
+    expect(removed.isError).toBe(true)
+    expect(text(removed)).toContain('is not allowed for this Session')
+
+    await settings.update({ enabled: false })
+    expect(text(await call(ctx, { provider: 'alpha' }))).toBe('alpha/plain — Plain')
+    expect(text(await call(ctx, { provider: 'alpha', model: 'plain' }))).toContain('alpha/plain — Plain')
+    await ctx.fiber.dispose()
   })
 
   it('rejects an unauthorized provider before calling its adapter catalog', async () => {
@@ -371,6 +413,14 @@ describe('list_subagent_models', () => {
       'alpha/fast — Fast: Focused work.\nReasoning efforts:\n'
       + 'low — Low\nhigh (default) — High: Quality first.',
     )
+  })
+
+  it('marks a route\'s configured default effort', async () => {
+    const ctx = await setupListTool([{ provider: 'alpha', model: 'fast', reasoningEffort: 'high' }])
+    ctx.llm.registerAdapter(['alpha'], new CatalogAdapter())
+    const result = await call(ctx, { provider: 'alpha', model: 'fast' })
+    expect(result.isError).toBe(false)
+    expect(text(result)).toContain('high (default, subagent default) — High: Quality first.')
   })
 
   it('renders exact models without reasoning metadata', async () => {
