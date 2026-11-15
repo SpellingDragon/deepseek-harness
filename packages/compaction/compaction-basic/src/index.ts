@@ -4,20 +4,21 @@
  * @module @deepseek-ai/dsh-compaction-basic
  */
 
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { CompactionEngine, ManualCompactionError } from '@deepseek-ai/dsh-compaction'
 import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
 import type { EpochHeader, Session, SessionSeq } from '@deepseek-ai/dsh-session'
+import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 import { CONTEXT_WINDOW_EXCEEDED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
-import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { agentContextWindowOf, agentContextWindowProjectionDefinition } from '@deepseek-ai/dsh-agent'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
-import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
-import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
+import type { CommandId } from '@deepseek-ai/dsh-commands/types'
 // Type-only: makes the optional sibling service available to `ctx.get()`.
 import type {} from '@deepseek-ai/dsh-compaction-tool-result-pruner'
+import { answeredRouteProjectionDefinition } from './answered-route.ts'
+import type { AnsweredRoute } from './answered-route.ts'
 import {
   resolveCompactSpec,
   resolveConfig,
@@ -30,7 +31,7 @@ import {
   selectCompactableRange,
 } from './region.ts'
 import { summarizeWithLlm } from './summarizer.ts'
-import type { SummarizationInput, SummaryResult } from './summarizer.ts'
+import type { SummarizationInput, SummaryResult, SummaryRoute } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
   ModelCompactPolicyConfig,
@@ -47,15 +48,16 @@ export type {
   ResolvedTargetPolicy,
 } from './types.ts'
 
+/** Detach a route that names both provider and model; any other value is no route. */
+function completeRoute(route: { provider?: string; model?: string } | undefined): SummaryRoute | undefined {
+  if (route?.provider === undefined || route.provider.length === 0
+    || route.model === undefined || route.model.length === 0) return undefined
+  return { provider: route.provider, model: route.model }
+}
+
 /** Resolve the exact provider/model durably routed for the latest request. */
-function routedTarget(
-  session: Session,
-): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
-  const config = session.requestHeader()?.config
-  if (config === undefined || config.provider.length === 0 || config.model.length === 0) {
-    return undefined
-  }
-  return { provider: config.provider, model: config.model }
+function routedTarget(session: Session): SummaryRoute | undefined {
+  return completeRoute(session.requestHeader()?.config)
 }
 
 /**
@@ -68,15 +70,19 @@ function reservedCompletionTokens(header: EpochHeader, defaultMaxTokens: number 
   return header.config.maxTokens ?? defaultMaxTokens ?? 0
 }
 
-/** Resolve the conversation target used to select an optional policy override. */
+/**
+ * Resolve the route that summarizes the conversation and selects its policy
+ * override. The route that last answered already accepted this history; the
+ * latest header may name a route whose only request overflowed.
+ * @param agent - supplies the latest header and the live fallback options.
+ * @param answered - route recorded on the latest assistant message; `null` before the first one.
+ * @returns the first complete route among `answered`, the latest header, and the agent options.
+ */
 function conversationTarget(
   agent: Agent,
-): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
-  const routed = routedTarget(agent.session)
-  if (routed !== undefined) return routed
-  if (agent.options.provider === undefined || agent.options.provider.length === 0
-    || agent.options.model === undefined || agent.options.model.length === 0) return undefined
-  return { provider: agent.options.provider, model: agent.options.model }
+  answered: AnsweredRoute,
+): SummaryRoute | undefined {
+  return completeRoute(answered ?? undefined) ?? routedTarget(agent.session) ?? completeRoute(agent.options)
 }
 
 const thresholdRatioSchema = z.number()
@@ -135,12 +141,20 @@ export class BasicCompactionEngine extends CompactionEngine {
   private readonly overflowRetries = new WeakMap<Agent, number>()
   private readonly overflowAgents = new WeakMap<Session, Agent>()
   private readonly contextWindowProjectionReady: Promise<ProjectionHandle<number | null>>
+  /** Registered at construction; `summarize()` awaits it, so no read precedes readiness. */
+  private readonly answeredRoute: Promise<ProjectionHandle<AnsweredRoute>>
 
   constructor(ctx: Context, config: BasicCompactionConfig = {}) {
     super(ctx)
     this.config = resolveConfig(config)
-    this.contextWindowProjectionReady = ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
+    this.contextWindowProjectionReady = this.ctx.sessionProjections.register(agentContextWindowProjectionDefinition)
+    this.answeredRoute = this.ctx.sessionProjections.register(answeredRouteProjectionDefinition)
     if (this.config.auto) this._registerAutomaticCompaction()
+  }
+
+  /** Fail plugin activation when the answered-route projection cannot register. */
+  protected async [Service.init](): Promise<void> {
+    await this.answeredRoute
   }
 
   /**
@@ -265,9 +279,12 @@ export class BasicCompactionEngine extends CompactionEngine {
    * Summarize the replayed conversation region through a direct one-shot
    * `ctx.llm.stream()` call whose prefix reuses the conversation's own system
    * prompt, tools, and messages so the provider's KV cache is not invalidated.
+   * Without a configured summary target the call goes to the route recorded
+   * on the latest assistant message, then the latest request header, then the
+   * agent options. A model selected for a later request is not used.
    * Override this sole hook for a template or remote summarizer.
    * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
-   * @param agent - supplies routed-model history, fallback model, and session id.
+   * @param agent - supplies the session history, fallback model, and session id.
    * @param signal - optional cancellation forwarded to the adapter.
    * @returns safe text summary blocks and the exact auxiliary call envelope and output.
    */
@@ -276,11 +293,11 @@ export class BasicCompactionEngine extends CompactionEngine {
     agent: Agent,
     signal?: AbortSignal,
   ): Promise<SummaryResult> {
-    const target = conversationTarget(agent)
+    const target = conversationTarget(agent, (await this.answeredRoute).stateOf(agent.session))
     const config = target === undefined
       ? this.config
       : resolveTargetPolicy(this.config, target)
-    return summarizeWithLlm(this.ctx, config, input, agent, signal)
+    return summarizeWithLlm(this.ctx, config, input, agent, target, signal)
   }
 
   /**

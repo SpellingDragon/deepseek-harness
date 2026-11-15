@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Use this package to give an agent a named tool that delegates work to a configured backend. Every call starts a managed activation and returns a child id; the runtime owns completion notices and cleanup. Local children support messages and restoration, while external backends execute one task and return their final answer through the completion notice. Supported backends can expose approved child LLM routes. Each instance can select a child preset and depth limit.
+Use this package to give an agent a named tool that delegates work to a configured backend. Every call starts a managed activation and returns the child's name; the runtime owns completion notices and cleanup. Local children support messages and restoration, while external backends execute one task and return their final answer through the completion notice. Supported backends can expose approved child LLM routes. Each instance can select a child preset and depth limit.
 
 ## Table of Contents
 
@@ -57,9 +57,9 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### Managed delegation
 
-Every call returns `started subagent <childId>` after the runtime accepts the child. It does not wait for the child's result. The activation owns the work independently of the completed tool call; the runtime sends a completion notice and releases execution resources.
+The optional `name` argument names the child, unique among the caller's children and cannot be `lead`; omission selects `agent-1`, `agent-2`, and so on. The [subagent runtime](../subagent/README.md#agent-names) owns the name rule and its errors. Every call returns `started subagent <name>` after the runtime accepts the child, where `<name>` is the child's full name from the root, such as `reviewer/checker`. Top-level calls persist `{ kind: 'activation', name: <name> }` in result presentation metadata; nested Code dispatches retain it in the corresponding `tool/ptc-dispatch` event's `meta` field. It does not wait for the child's result. The activation owns the work independently of the completed tool call; the runtime sends a completion notice and releases execution resources.
 
-Every backend’s completion notice carries its final answer. Local Spawn and Fork children can also send messages, accept more work through `send_message` while active, or resume after settling. Codex, Claude Code, ACP, and DSH SDK backends do not accept follow-up messages.
+For every backend, the runtime automatically delivers the completion notice if the calling Agent is still online when the child finishes. The notice includes the final answer unless the child sent that Agent a message just before finishing. Local Spawn and Fork children can also send messages, accept more work through `send_message` while active, or resume after settling. Codex, Claude Code, ACP, and DSH SDK backends do not accept follow-up messages.
 
 `maxDepth` caps recursion (`0` forbids delegation); omission reads the current Host `subagent.maxDepth` setting, initially `1`, at each delegation. A numeric depth requires a provider with the `depthLimit` capability; `'provider-managed'` leaves the budget to an out-of-process provider. The tool stays visible at the cap; each attempted start checks the calling agent's current depth and rejects with an errored result.
 
@@ -76,7 +76,7 @@ Compose persona and tools in the [preset plugin list](../../preset/agent-preset-
 
 Set `modelSelection: true` to expose optional `provider`, `model`, and `reasoning_effort` fields; instances without it reject selection fields. Set `modelDiscovery: true` on one instance per tool scope to register `list_subagent_models`; it defaults off independently of `modelSelection`. A second discovery owner in the same scope fails to register. Discovery follows its owning plugin instance, remains available when its delegation provider is absent, and is removed when that instance unloads. Web and Desktop presets enable discovery and route fields on spawn and leave both disabled on fork. The Host’s `/model-selection-settings` service records the current user preference for each Agent when it is created and propagates preference changes to every live Agent; restored Sessions are reconciled on resume. Its creation listener subscribes before projection registration completes and awaits the handle; registration failure or owner disposal rejects Agent publication. When enabled, the exact route list is recorded in the Session, and each later change appends a policy-change event; disabling records a change that restricts explicit selection to the current parent route. Each authorized route may record an adapter-supported default reasoning effort and a child-only context-window override; an omitted `reasoning_effort` uses the effort when the effective route matches, while an explicit value still wins. One authorized route may also be marked as the delegation default: a call that selects no route delegates to it, and its authorized effort follows the same rule. Tool-configured `agentOptions` and an explicit route take precedence; without a marked route the child keeps inheriting configured and parent values. Without a recorded Session policy, discovery and explicit selection permit only the parent Agent’s current effective provider/model and its supported efforts. Route fields require a backend that advertises `agentOptions`; in-process Spawn and Fork and DSH SDK qualify, while ACP, Codex, and Claude Code fail the mount.
 
-A call supplies `provider` and `model` together, or supplies only an effort when configured, parent, or provider-owned defaults provide the route. Static `provider.agentRouteDefaults`, when present, form the provider/model baseline; the settings-marked default route overlays it, tool configuration overlays the default, and model fields overlay everything before route-aware effort merging and exact-route preflight. Providers without these defaults use compatible values from the parent's latest logged request, then the parent's creation options before its first request, while retaining the configured `maxTokens`. Changing the route without an explicit effort clears the inherited route-owned effort, so the route's authorized default or the selected model resolves its default. A route's authorized context window is appended by the Host settings service as log-only `agent/context-window` events on child Sessions; the agent loop and compaction read the projection, so the override is scoped to child Agents and does not change the top-level Agent or the adapter's actual capacity. The override reaches in-process children whose Agent the Host owns; out-of-process providers such as the DSH SDK keep their own runtime capacity. Removing the route's window returns the child to adapter metadata; disabling model selection or removing the route leaves a running child's current window unchanged. The live LLM adapter validates the effective route before child creation. Catalog membership remains advisory, so a model can use an unlisted id when its adapter accepts it.
+A call supplies `provider` and `model` together; `reasoning_effort` requires both fields in the same call, so an effort-only call rejects before route lookup or child creation. Omitting all three fields preserves configured child defaults and their existing fallback behavior. Static `provider.agentRouteDefaults`, when present, form the provider/model baseline; the settings-marked default route overlays it, tool configuration overlays the default, and model fields overlay everything before route-aware effort merging and exact-route preflight. Providers without these defaults use compatible values from the parent's latest logged request, then the parent's creation options before its first request, while retaining the configured `maxTokens`. An explicit provider/model pair without an effort clears configured and inherited effort, even when the route is unchanged; the route's authorized default or the selected model then resolves its default. A route's authorized context window is appended by the Host settings service as log-only `agent/context-window` events on child Sessions; the agent loop and compaction read the projection, so the override is scoped to child Agents and does not change the top-level Agent or the adapter's actual capacity. The override reaches in-process children whose Agent the Host owns; out-of-process providers such as the DSH SDK keep their own runtime capacity. Removing the route's window returns the child to adapter metadata; disabling model selection or removing the route leaves a running child's current window unchanged. The live LLM adapter validates the effective route before child creation. Catalog membership remains advisory, so a model can use an unlisted id when its adapter accepts it.
 
 -----
 
@@ -94,11 +94,11 @@ One instance is one provider plus one tool name. The plugin registers its defini
 
 ### Activation ownership
 
-The tool calls `ctx.subagents.startActivation()` with parent delivery selected. The runtime owns startup cancellation, execution, outcome reporting, and cleanup. A startup failure is an errored tool result; failures after publication arrive through the completion notice, with diagnostics and partial output preserved by the runtime.
+The tool calls `ctx.subagents.startActivation()` with parent delivery selected. The runtime owns startup cancellation, execution, outcome reporting, and cleanup. A startup failure is an errored tool result. Rejections before startup are coded: a missing calling Agent, `llm` service, or effective parent route throws `ToolContextUnavailableError`; an empty or unpaired route field throws `ToolArgsError`; and `SubagentError` reports a disabled selection (`MODEL_SELECTION_DISABLED`, `PRESET_SELECTION_DISABLED`), a preset outside the allowlist (`PRESET_NOT_ALLOWED`), a route the Session does not authorize (`MODEL_ROUTE_NOT_ALLOWED`), an LLM provider unknown to discovery (`LLM_PROVIDER_NOT_FOUND`), or a provider replaced during route preflight (`PROVIDER_CHANGED`). Failures after publication arrive through the completion notice, with diagnostics and partial output preserved by the runtime.
 
 ### Result acknowledgement
 
-The canonical tool result is `{ kind: 'activation', subagentId }`. It contains no execution Promise or final output; programmatic consumers that need to await results use the subagent service directly.
+The canonical tool result is `{ kind: 'activation', name }`. It contains no execution Promise or final output; programmatic consumers that need to await results use the subagent service directly.
 
 ### Context-sensitive wording
 
@@ -143,7 +143,7 @@ The generated default [`subagent` schema](../../../docs/tool-catalog.md#deepseek
 
 #### Token effect
 
-Fixed schema cost per parent request; `modelSelection` adds three optional route fields, while preset selection adds one enum parameter and default guidance. Each tool instance adds one schema; visible delegation tools share one short system-prompt section.
+Fixed schema cost per parent request, including the optional `name` field; `modelSelection` adds three optional route fields, while preset selection adds one enum parameter and default guidance. Each tool instance adds one schema; visible delegation tools share one short system-prompt section.
 
 #### KV Cache effect
 
@@ -153,7 +153,7 @@ Prefix-stable while provider instances and their configuration are unchanged. Ad
 
 #### What the model sees
 
-The optional `list_subagent_models` definition reads the calling Session’s route policy, falling back to the current parent route when no policy is recorded. A saved preference change appends a policy-change event to every live Session, so the next discovery or delegation call sees the new authorization; a restored Session is reconciled before its first new request. Calls reject while the optional `ctx.llm` service is unavailable. With a recorded policy, provider model lists intersect the advertised catalog with the Session’s authorized routes. Without one, they resolve only the current parent model, even if the catalog omits it. The provider list ends with the Session’s delegation scope — the listed providers with a policy, only the current provider without one — so a filtered list is not read as the full catalog. The discovery tool’s own description instructs the model to query options before selecting a child route; omitting or filtering out discovery removes that guidance. Exact-model queries accept authorized ids absent from the catalog and mark a route’s configured default effort as `subagent default`; unauthorized provider/model lookups fail before adapter access. Catalog or exact-model lookup failures and cancellation reject the call. Execution independently enforces the same policy.
+The optional `list_subagent_models` definition reads the calling Session’s route policy, falling back to the current parent route when no policy is recorded. A saved preference change appends a policy-change event to every live Session, so the next discovery or delegation call sees the new authorization; a restored Session is reconciled before its first new request. Calls reject while the optional `ctx.llm` service is unavailable. With a recorded policy, provider model lists intersect the advertised catalog with the Session’s authorized routes. Without one, they resolve only the current parent model, even if the catalog omits it. The provider list ends with the Session’s delegation scope — the listed providers with a policy, only the current provider without one — so a filtered list is not read as the full catalog. The discovery tool’s description instructs the model to query options before selecting a child route and to omit optional query fields rather than send empty strings; omitting or filtering out discovery removes that guidance. Delegation tools document their own selection fields and defaults. Exact-model queries accept authorized ids absent from the catalog and mark a route’s configured default effort as `subagent default`; unauthorized provider/model lookups fail before adapter access. Catalog or exact-model lookup failures and cancellation reject the call. Execution independently enforces the same policy.
 
 #### Token effect
 
@@ -167,21 +167,23 @@ The schema is prefix-stable across adapter registration and catalog changes. Eac
 
 #### What the model sees
 
-Visible delegation tools share one guidance paragraph, listing tools in name order and instructing the model to start independent delegations together and keep working while they run, and to end its turn instead of sleeping or polling when only waiting for their results remains. Ending the turn works because a settled child notifies its parent and a notice that reaches an idle parent starts one independent model request; hosts that keep children progressing alternate `agent.whenIdle()` and `waitForChildren(agent)` ([`dsh-subagent`](../subagent/README.md), [`session.ts`](../../acp/acp/src/session.ts)). Hidden or unavailable tools are omitted; no guidance appears when none are visible. With both `subagent` and `subagent_fork` visible, the text is:
+Visible delegation tools share delegation and collaboration guidance, listing tools in name order and instructing the model to start independent delegations together and keep working while they run, and to end its turn instead of sleeping or polling when only waiting for their results remains. Ending the turn works because a settled child notifies its parent and a notice that reaches an idle parent starts one independent model request; hosts that keep children progressing alternate `agent.whenIdle()` and `waitForChildren(agent)` ([`dsh-subagent`](../subagent/README.md), [`session.ts`](../../acp/acp/src/session.ts)). Hidden or unavailable tools are omitted; no guidance appears when none are visible. With both `subagent` and `subagent_fork` visible, the text is:
 
 ##### Tool-guidance section
 
 ```markdown
-Start independent delegations with `subagent` or `subagent_fork` together in one assistant message and continue useful work while they run. When only waiting for their results remains, end your turn instead of sleeping or polling; the next result starts a new turn.
+Start independent delegations with `subagent` or `subagent_fork` together in one assistant message and continue useful work while they run. When only waiting for their results remains, end your turn instead of sleeping or polling; the next result starts a new turn. Collect the subagent results required to complete the task before giving the user a final answer.
+
+Bash, formatters, code generators, and scripts can overwrite concurrent edits without conflict detection; coordinate their changes explicitly. The agent integrating the work must review the final diff and run relevant tests.
 ```
 
 #### Token effect
 
-At most one short delegation paragraph per parent request, listing the tool names visible to that request.
+Two guidance paragraphs per parent request with visible delegation tools, listing their names and shared-file coordination rules.
 
 #### KV Cache effect
 
-Prefix-stable while the visible tool names are unchanged; adding or removing a visible tool changes the paragraph.
+Prefix-stable while the visible tool names are unchanged; adding or removing a visible tool changes the guidance.
 
 ### Runtime depth context
 
@@ -207,7 +209,7 @@ Depth changes do not alter the system prompt or tool schemas. Updated runtime co
 
 #### What the model sees
 
-The call retains the task description and prompt. Success returns `started subagent <childId>`; startup rejection returns an error. Child execution details are delivered separately from this acknowledgement.
+The `description` guidance asks for 3–5 words in the language of the user’s current request. The call retains the task description and prompt. Success returns `started subagent <name>`; startup rejection, including a duplicate or invalid `name`, returns an error. Child execution details are delivered separately from this acknowledgement.
 
 #### Token effect
 
@@ -221,7 +223,7 @@ Append-only; newly visible content follows the reusable request prefix and does 
 
 #### What the model sees
 
-Answer delivery follows the managed delegation rules above. The returned child id identifies subsequent control and catalog operations; only backends with continuation support accept follow-up messages.
+Answer delivery follows the managed delegation rules above. The returned name addresses the child in `send_message`, `interrupt_agent`, and Team task owners; only backends with continuation support accept follow-up messages.
 
 #### Token effect
 
